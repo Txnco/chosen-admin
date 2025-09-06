@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   User, 
   Mail, 
@@ -84,6 +84,11 @@ export default function ProfilePage() {
     const first = user.first_name?.charAt(0) || '';
     const last = user.last_name?.charAt(0) || '';
     return (first + last).toUpperCase() || 'U';
+  };
+
+  const getProfileImageUrl = (profilePicture?: string) => {
+    if (!profilePicture) return null;
+    return `https://admin.chosen-international.com/public/uploads/profile/${profilePicture}`;
   };
 
   const getRoleName = (roleId: number) => {
@@ -150,7 +155,7 @@ export default function ProfilePage() {
                   <Card className="lg:col-span-1">
                     <CardContent className="p-6">
                       <div className="flex flex-col items-center space-y-4">
-                        <div className="w-20 h-20 bg-gray-200 rounded-full animate-pulse"></div>
+                        <div className="w-24 h-24 bg-gray-200 rounded-full animate-pulse"></div>
                         <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
                         <div className="h-4 bg-gray-200 rounded w-40 animate-pulse"></div>
                       </div>
@@ -232,6 +237,8 @@ export default function ProfilePage() {
 
   if (!profileUser) return null;
 
+  const profileImageUrl = getProfileImageUrl(profileUser.profile_picture);
+
   return (
     <ProtectedRoute>
       <SidebarProvider>
@@ -305,6 +312,13 @@ export default function ProfilePage() {
                 <CardContent className="p-6">
                   <div className="flex flex-col items-center text-center space-y-4">
                     <Avatar className="w-24 h-24 border-4 border-gray-100">
+                      {profileImageUrl ? (
+                        <AvatarImage 
+                          src={profileImageUrl} 
+                          alt={`${profileUser.first_name} ${profileUser.last_name}`}
+                          className="object-cover"
+                        />
+                      ) : null}
                       <AvatarFallback className="bg-black text-white text-2xl font-bold">
                         {getUserInitials(profileUser)}
                       </AvatarFallback>
@@ -374,6 +388,8 @@ export default function ProfilePage() {
                       </Badge>
                     </div>
                   </div>
+
+                 
 
                   {/* Timestamps */}
                   <div className="border-t pt-6">

@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import {
   Avatar,
   AvatarFallback,
+  AvatarImage,
 } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ export function NavUser({
     email: string
     avatar: string
     role?: string
+    profile_picture?: string
   }
 }) {
   const { isMobile } = useSidebar()
@@ -60,9 +62,17 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg border-2 border-gray-200">
-                <AvatarFallback className="rounded-lg bg-black text-white font-bold text-xs">
-                  {user.avatar}
-                </AvatarFallback>
+                {user.profile_picture ? (
+                  <AvatarImage 
+                    src={user.profile_picture} 
+                    alt={user.name}
+                    className="object-cover"
+                  />
+                ) : (
+                  <AvatarFallback className="rounded-lg bg-black text-white font-bold text-xs">
+                    {user.avatar}
+                  </AvatarFallback>
+                )}
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -79,19 +89,23 @@ export function NavUser({
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg border-2 border-gray-200">
-                  <AvatarFallback className="rounded-lg bg-black text-white font-bold text-xs">
-                    {user.avatar}
-                  </AvatarFallback>
+                 <Avatar className="h-8 w-8 rounded-lg border-2 border-gray-200">
+                  {user.profile_picture ? (
+                    <AvatarImage 
+                      src={user.profile_picture} 
+                      alt={user.name}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <AvatarFallback className="rounded-lg bg-black text-white font-bold text-xs">
+                      {user.avatar}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="truncate text-xs text-gray-600">{user.email}</span>
-                  {user.role && (
-                    <Badge variant="outline" className="w-fit mt-1 text-xs">
-                      {user.role}
-                    </Badge>
-                  )}
+
                 </div>
               </div>
             </DropdownMenuLabel>

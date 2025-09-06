@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AppSidebar } from "@/components/app-sidebar"
@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Users, 
   Search, 
@@ -54,7 +54,8 @@ import {
   ChevronRight,
   CheckCircle,
   Trash2,
-  Edit
+  Edit,
+  Upload
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -106,6 +107,10 @@ export default function UsersPage() {
   const [globalFilter, setGlobalFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | '1' | '2'>('all');
 
+  // File input refs
+  const createFileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
   // Add User Modal State
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -117,6 +122,8 @@ export default function UsersPage() {
     email: '',
     password: '',
   });
+  const [newUserProfilePicture, setNewUserProfilePicture] = useState<File | null>(null);
+  const [newUserPreviewUrl, setNewUserPreviewUrl] = useState<string>('');
 
   // Edit User Modal State
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
@@ -131,6 +138,8 @@ export default function UsersPage() {
     password: '',
     role_id: 2,
   });
+  const [editUserProfilePicture, setEditUserProfilePicture] = useState<File | null>(null);
+  const [editUserPreviewUrl, setEditUserPreviewUrl] = useState<string>('');
 
   // Delete User Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -161,6 +170,95 @@ export default function UsersPage() {
     }
   };
 
+  // Handle file selection for create user
+  const handleCreateFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setCreateError('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setCreateError('File size must be less than 5MB');
+        return;
+      }
+
+      setNewUserProfilePicture(file);
+      const previewUrl = URL.createObjectURL(file);
+      setNewUserPreviewUrl(previewUrl);
+      setCreateError('');
+    }
+  };
+
+  // Handle file selection for edit user
+  const handleEditFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setUpdateError('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setUpdateError('File size must be less than 5MB');
+        return;
+      }
+
+      setEditUserProfilePicture(file);
+      const previewUrl = URL.createObjectURL(file);
+      setEditUserPreviewUrl(previewUrl);
+      setUpdateError('');
+    }
+  };
+
+  // Remove selected file for create user
+  const removeCreateProfilePicture = () => {
+      console.log('Removing create profile picture');
+      
+      // Clean up the object URL to prevent memory leaks
+      if (newUserPreviewUrl) {
+        URL.revokeObjectURL(newUserPreviewUrl);
+      }
+      
+      // Reset all related state
+      setNewUserProfilePicture(null);
+      setNewUserPreviewUrl(''); // Always clear this state
+      
+      // Clear the file input
+      if (createFileInputRef.current) {
+        createFileInputRef.current.value = '';
+      }
+      
+      // Clear any related errors
+      setCreateError('');
+    };
+
+  const removeEditProfilePicture = () => {
+    console.log('Removing edit profile picture');
+    
+    // Clean up the object URL to prevent memory leaks
+    if (editUserPreviewUrl) {
+      URL.revokeObjectURL(editUserPreviewUrl);
+    }
+    
+    // Reset all related state
+    setEditUserProfilePicture(null);
+    setEditUserPreviewUrl(''); // Always clear this state
+    
+    // Clear the file input
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = '';
+    }
+    
+    // Clear any related errors
+    setUpdateError('');
+  };
+
   const handleCreateUser = async () => {
     try {
       setIsCreatingUser(true);
@@ -174,14 +272,19 @@ export default function UsersPage() {
       }
 
       // Generate password if not provided
-      const userData = {
-        ...newUser,
-        password: newUser.password.trim() || generatePassword(),
+      const password = newUser.password.trim() || generatePassword();
+      
+      const userData: CreateUserData = {
+        first_name: newUser.first_name.trim(),
+        last_name: newUser.last_name.trim(),
+        email: newUser.email.trim(),
+        password: password,
+        profile_picture: newUserProfilePicture || undefined,
       };
 
       await authApi.register(userData);
       
-      setCreateSuccess(`User created successfully! Password: ${userData.password}`);
+      setCreateSuccess(`User created successfully! Password: ${password}`);
       
       // Reset form
       setNewUser({
@@ -190,6 +293,7 @@ export default function UsersPage() {
         email: '',
         password: '',
       });
+      removeCreateProfilePicture();
 
       // Reload users
       await loadUsers();
@@ -220,13 +324,18 @@ export default function UsersPage() {
         return;
       }
 
-      // Prepare update data (only include fields that have values)
-      const updateData: UpdateUserData = {};
-      if (editUserData.first_name?.trim()) updateData.first_name = editUserData.first_name.trim();
-      if (editUserData.last_name?.trim()) updateData.last_name = editUserData.last_name.trim();
-      if (editUserData.email?.trim()) updateData.email = editUserData.email.trim();
-      if (editUserData.password?.trim()) updateData.password = editUserData.password.trim();
-      if (editUserData.role_id) updateData.role_id = editUserData.role_id;
+      // Prepare update data
+      const updateData: UpdateUserData = {
+        first_name: editUserData.first_name.trim(),
+        last_name: editUserData.last_name.trim(),
+        email: editUserData.email.trim(),
+        role_id: editUserData.role_id,
+        profile_picture: editUserProfilePicture || undefined,
+      };
+
+      if (editUserData.password?.trim()) {
+        updateData.password = editUserData.password.trim();
+      }
 
       const response = await userApi.updateUser(updateData, userToEdit.user_id);
       
@@ -306,6 +415,13 @@ export default function UsersPage() {
     setIsEditUserOpen(true);
     setUpdateError('');
     setUpdateSuccess('');
+    
+    // Clear any existing edit state completely
+    setEditUserProfilePicture(null);
+    setEditUserPreviewUrl('');
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = '';
+    }
   };
 
   const resetCreateForm = () => {
@@ -317,6 +433,7 @@ export default function UsersPage() {
     });
     setCreateError('');
     setCreateSuccess('');
+    removeCreateProfilePicture();
   };
 
   const resetEditForm = () => {
@@ -330,12 +447,18 @@ export default function UsersPage() {
     setUpdateError('');
     setUpdateSuccess('');
     setUserToEdit(null);
+    removeEditProfilePicture();
   };
 
   const getUserInitials = (user: UserData) => {
     const first = user.first_name?.charAt(0) || '';
     const last = user.last_name?.charAt(0) || '';
     return (first + last).toUpperCase() || 'U';
+  };
+
+  const getProfileImageUrl = (profilePicture?: string) => {
+    if (!profilePicture) return null;
+    return `https://admin.chosen-international.com/public/uploads/profile/${profilePicture}`;
   };
 
   const getRoleName = (roleId: number) => {
@@ -381,12 +504,22 @@ export default function UsersPage() {
       },
       cell: ({ row }) => {
         const user = row.original;
+        const profileImageUrl = getProfileImageUrl(user.profile_picture);
+        
         return (
           <div className="flex items-center gap-3 pl-3">
             <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-black text-white text-xs font-bold">
-                {getUserInitials(user)}
-              </AvatarFallback>
+              {profileImageUrl ? (
+                <AvatarImage
+                  src={profileImageUrl}
+                  alt={`${user.first_name} ${user.last_name}`}
+                  className="object-cover w-full h-full rounded-full"
+                />
+              ) : (
+                <AvatarFallback className="bg-black text-white text-xs font-bold">
+                  {getUserInitials(user)}
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
               <div className="font-medium text-black">
@@ -562,6 +695,14 @@ export default function UsersPage() {
     },
   });
 
+  // Cleanup URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (newUserPreviewUrl) URL.revokeObjectURL(newUserPreviewUrl);
+      if (editUserPreviewUrl) URL.revokeObjectURL(editUserPreviewUrl);
+    };
+  }, [newUserPreviewUrl, editUserPreviewUrl]);
+
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -635,6 +776,47 @@ export default function UsersPage() {
                     </AlertDescription>
                   </Alert>
                 )}
+
+                {/* Profile Picture Upload */}
+                <div className="space-y-2">
+                  <Label>Profile Picture (optional)</Label>
+                  <div className="space-y-3">
+                        {newUserPreviewUrl && (
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={newUserPreviewUrl}
+                              alt="Profile preview"
+                              className="w-16 h-16 rounded-full object-cover border"
+                            />
+                            <p className="text-sm text-gray-600">
+                              {newUserProfilePicture?.name}
+                            </p>
+                          </div>
+                        )}
+
+                        <input
+                          ref={createFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCreateFileSelect}
+                          className="hidden"
+                          disabled={isCreatingUser}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => createFileInputRef.current?.click()}
+                          disabled={isCreatingUser}
+                          className="w-full"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          {newUserPreviewUrl ? 'Choose different image' : 'Choose Image'}
+                        </Button>
+                        <p className="text-xs text-gray-500 text-center">
+                          PNG, JPG, JPEG up to 5MB
+                        </p>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -744,6 +926,47 @@ export default function UsersPage() {
                 </Alert>
               )}
 
+              {/* Profile Picture Upload */}
+              <div className="space-y-2">
+                <Label>Profile Picture</Label>
+                <div className="space-y-3">
+                    {(editUserPreviewUrl || userToEdit?.profile_picture) && (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={editUserPreviewUrl || getProfileImageUrl(userToEdit?.profile_picture) || ''}
+                          alt="Profile preview"
+                          className="w-16 h-16 rounded-full object-cover border"
+                        />
+                        <p className="text-sm text-gray-600">
+                          {editUserProfilePicture?.name || 'Current profile picture'}
+                        </p>
+                      </div>
+                    )}
+
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditFileSelect}
+                      className="hidden"
+                      disabled={isUpdatingUser}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={isUpdatingUser}
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {(editUserPreviewUrl || userToEdit?.profile_picture) ? 'Choose different image' : 'Choose Image'}
+                    </Button>
+                    <p className="text-xs text-gray-500 text-center">
+                      PNG, JPG, JPEG up to 5MB
+                    </p>
+                  </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit_first_name">First Name *</Label>
@@ -852,6 +1075,12 @@ export default function UsersPage() {
               <div className="py-4">
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <Avatar className="h-10 w-10">
+                    {getProfileImageUrl(userToDelete.profile_picture) ? (
+                      <AvatarImage 
+                        src={getProfileImageUrl(userToDelete.profile_picture) || ''} 
+                        alt={`${userToDelete.first_name} ${userToDelete.last_name}`} 
+                      />
+                    ) : null}
                     <AvatarFallback className="bg-black text-white text-sm font-bold">
                       {getUserInitials(userToDelete)}
                     </AvatarFallback>

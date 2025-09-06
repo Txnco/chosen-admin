@@ -46,6 +46,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return user.email || ''
   }
 
+  const getProfileImageUrl = () => {
+    if (!user || isLoading) return null;
+    return `https://admin.chosen-international.com/public/uploads/profile/${user.profile_picture}`;
+  };
+
   const getUserRole = () => {
     if (!user || isLoading) return ''
     return user.role_id === 1 ? 'Administrator' : 'User'
@@ -56,6 +61,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     user: {
       name: getUserName(),
       email: getUserEmail(),
+      profile_picture: getProfileImageUrl(),
       avatar: getUserInitials(),
       role: getUserRole()
     },
@@ -106,8 +112,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard">
-                <div className="bg-black text-white flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <span className="text-sm font-bold">C</span>
+                <div className=" text-white flex aspect-square size-8 items-center justify-center rounded-lg">
+                   <img
+                    src="https://admin.chosen-international.com/public/assets/logo/ChosenLogo.svg"
+                    alt="Chosen Logo"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span 

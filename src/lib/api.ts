@@ -5,9 +5,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://admin.chos
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // headers: {
+  //   'Content-Type': 'application/json',
+  // },
 });
 
 // Add token to requests
@@ -54,8 +54,26 @@ export interface UserData {
   first_name: string;
   last_name: string;
   email: string;
+  profile_picture?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateUserData {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  profile_picture?: File;
+}
+
+export interface UpdateUserData {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  password?: string;
+  role_id?: number;
+  profile_picture?: File;
 }
 
 // Auth API
@@ -65,8 +83,22 @@ export const authApi = {
     return response.data;
   },
 
-  register: async (userData: UserData): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', userData);
+  register: async (userData: CreateUserData): Promise<AuthResponse> => {
+    const formData = new FormData();
+    formData.append('first_name', userData.first_name);
+    formData.append('last_name', userData.last_name);
+    formData.append('email', userData.email);
+    formData.append('password', userData.password);
+    
+    if (userData.profile_picture) {
+      formData.append('profile_picture', userData.profile_picture);
+    }
+
+    const response = await api.post('/user/register', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
   
@@ -88,18 +120,31 @@ export const userApi = {
     return response.data;
   },
 
-  getAll: async (): Promise<UserData> => {
-    const response = await api.get(`/user/`);
-    return response.data;
-  },
-
-  deleteUser: async (userId: number): Promise<UserData> => {
-    const response = await api.delete(`/user/${userId}`);
+  getAll: async (): Promise<UserData[]> => {
+    const response = await api.get('/user/');
     return response.data;
   },
 
   updateUser: async (data: UpdateUserData, userId: number): Promise<UserData> => {
-    const response = await api.put(`/user/${userId}`, data);
+    const formData = new FormData();
+    
+    if (data.first_name) formData.append('first_name', data.first_name);
+    if (data.last_name) formData.append('last_name', data.last_name);
+    if (data.email) formData.append('email', data.email);
+    if (data.password) formData.append('password', data.password);
+    if (data.role_id) formData.append('role_id', data.role_id.toString());
+    if (data.profile_picture) formData.append('profile_picture', data.profile_picture);
+
+    const response = await api.put(`/user/${userId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteUser: async (userId: number): Promise<any> => {
+    const response = await api.delete(`/user/${userId}`);
     return response.data;
   },
   
