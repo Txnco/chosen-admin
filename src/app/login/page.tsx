@@ -51,17 +51,7 @@ export default function LoginPage() {
     }
   };
 
-  // Show loading spinner while checking auth status
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-black" />
-      </div>
-    );
-  }
-
-  // If already authenticated, show loading while redirecting
-  if (isAuthenticated) {
+  if (isLoading || isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="h-8 w-8 animate-spin text-black" />
@@ -70,96 +60,105 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
-      <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 
-            className="text-6xl font-bold tracking-tight text-black mb-4"
-            style={{ fontFamily: 'Avenir, -apple-system, BlinkMacSystemFont, sans-serif' }}
-          >
-            CHOSEN
-          </h1>
-          <h2 className="text-2xl font-light text-gray-800 tracking-wide">
-            LOGIN
-          </h2>
-        </div>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Main Content */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          {/* Logo and Title */}
+          <div className="text-center mb-12">
+            <div className="mb-6">
+              <img
+                src="https://admin.chosen-international.com/public/assets/logo/ChosenLogo.svg"
+                alt="CHOSEN Logo"
+                className="w-24 h-24 mx-auto object-contain"
+              />
+            </div>
+            <h1 
+              className="text-4xl font-bold tracking-tight text-black mb-2"
+              style={{ fontFamily: 'Avenir, -apple-system, BlinkMacSystemFont, sans-serif' }}
+            >
+              CHOSEN
+            </h1>
+            <p className="text-gray-600 text-sm">
+              Admin Portal
+            </p>
+          </div>
 
-        {/* Login Card */}
-        <Card className="border border-gray-300 shadow-sm">
-          <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Error Alert */}
-              {error && (
-                <Alert variant="destructive" className="border-red-300 bg-red-50">
-                  <AlertDescription className="text-red-800">{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              {/* Email Field */}
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-black font-normal text-sm">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="h-11 border border-gray-300 focus:border-black focus:ring-0 bg-white"
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              {/* Password Field */}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-black font-normal text-sm">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="h-11 border border-gray-300 focus:border-black focus:ring-0 bg-white"
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                className="w-full h-11 bg-black text-white hover:bg-gray-900 font-medium transition-colors mt-8"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
+          {/* Login Card */}
+          <Card className="border border-gray-200 shadow-sm">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {/* Error Alert */}
+                {error && (
+                  <Alert variant="destructive" className="border-red-300 bg-red-50">
+                    <AlertDescription className="text-red-800 text-sm">{error}</AlertDescription>
+                  </Alert>
                 )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-black text-sm">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="h-10 border-gray-300 focus:border-black"
+                    disabled={isSubmitting}
+                  />
+                </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-xs text-gray-500">
-            Admin access only
-          </p>
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-black text-sm">
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="h-10 border-gray-300 focus:border-black"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <Button
+                  onClick={handleSubmit}
+                  className="w-full h-10 bg-black text-white hover:bg-gray-900 mt-6"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="py-4 px-4">
+        <div className="text-center space-y-1">
+          <p className="text-xs text-gray-400">
+            © {new Date().getFullYear()} CHOSEN International
+          </p>
+          {/* <p className="text-xs text-gray-400">
+            Made by CHOSEN Team
+          </p> */}  
+        </div>
+      </footer>
     </div>
   );
 }
