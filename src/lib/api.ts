@@ -97,6 +97,11 @@ export const userApi = {
     const response = await api.delete(`/user/${userId}`);
     return response.data;
   },
+
+  updateUser: async (data: UpdateUserData, userId: number): Promise<UserData> => {
+    const response = await api.put(`/user/${userId}`, data);
+    return response.data;
+  },
   
   getProfile: async (userId?: number): Promise<UserData> => {
     if (userId) {

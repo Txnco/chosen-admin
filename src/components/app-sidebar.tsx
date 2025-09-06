@@ -72,24 +72,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: Users,
         isActive: pathname.startsWith("/dashboard/users"),
       },
-      {
-        title: "Questionnaires",
-        url: "/dashboard/questionnaires", 
-        icon: FileText,
-        isActive: pathname.startsWith("/dashboard/questionnaires"),
-      },
-      {
-        title: "Messages",
-        url: "/dashboard/messages",
-        icon: MessageSquare,
-        isActive: pathname.startsWith("/dashboard/messages"),
-      },
-      {
-        title: "Analytics",
-        url: "/dashboard/analytics",
-        icon: BarChart3,
-        isActive: pathname.startsWith("/dashboard/analytics"),
-      },
+      // {
+      //   title: "Questionnaires",
+      //   url: "/dashboard/questionnaires", 
+      //   icon: FileText,
+      //   isActive: pathname.startsWith("/dashboard/questionnaires"),
+      // },
+      // {
+      //   title: "Messages",
+      //   url: "/dashboard/messages",
+      //   icon: MessageSquare,
+      //   isActive: pathname.startsWith("/dashboard/messages"),
+      // },
+      // {
+      //   title: "Analytics",
+      //   url: "/dashboard/analytics",
+      //   icon: BarChart3,
+      //   isActive: pathname.startsWith("/dashboard/analytics"),
+      // },
       {
         title: "Settings",
         url: "/dashboard/settings",

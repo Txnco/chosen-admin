@@ -409,67 +409,34 @@ export default function DashboardPage() {
                   </Link>
                 </Button>
                 
-                <Button asChild className="w-full justify-start" variant="outline">
+                {/* <Button asChild className="w-full justify-start" variant="outline">
                   <Link href="/dashboard/questionnaires">
                     <FileText className="h-4 w-4 mr-2" />
                     View Questionnaires
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
-                </Button>
+                </Button> */}
                 
-                <Button asChild className="w-full justify-start" variant="outline">
+                {/* <Button asChild className="w-full justify-start" variant="outline">
                   <Link href="/dashboard/messages">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Messages
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
-                </Button>
+                </Button> */}
                 
-                <Button asChild className="w-full justify-start" variant="outline">
+                {/* <Button asChild className="w-full justify-start" variant="outline">
                   <Link href="/dashboard/analytics">
                     <BarChart3 className="h-4 w-4 mr-2" />
                     Analytics
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
-                </Button>
+                </Button> */}
               </CardContent>
             </Card>
           </div>
 
-          {/* System Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">System Status</CardTitle>
-              <CardDescription>Current system health and statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="flex items-center space-x-3">
-                  <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">API Status</p>
-                    <p className="text-xs text-gray-500">All systems operational</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Database</p>
-                    <p className="text-xs text-gray-500">Connected and healthy</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Last Updated</p>
-                    <p className="text-xs text-gray-500">{format(new Date(), 'MMM dd, HH:mm')}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        
         </div>
       </SidebarInset>
     </SidebarProvider>

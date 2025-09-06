@@ -53,7 +53,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -68,7 +69,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { userApi, UserData, CreateUserData } from '@/lib/api';
+import { userApi, authApi, UserData, CreateUserData, UpdateUserData } from '@/lib/api';
 import { format } from 'date-fns';
 import {
   ColumnDef,
@@ -115,6 +116,20 @@ export default function UsersPage() {
     last_name: '',
     email: '',
     password: '',
+  });
+
+  // Edit User Modal State
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+  const [updateSuccess, setUpdateSuccess] = useState('');
+  const [userToEdit, setUserToEdit] = useState<UserData | null>(null);
+  const [editUserData, setEditUserData] = useState<UpdateUserData>({
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    role_id: 2,
   });
 
   // Delete User Modal State
@@ -164,7 +179,7 @@ export default function UsersPage() {
         password: newUser.password.trim() || generatePassword(),
       };
 
-      await userApi.create(userData);
+      await authApi.register(userData);
       
       setCreateSuccess(`User created successfully! Password: ${userData.password}`);
       
@@ -179,12 +194,6 @@ export default function UsersPage() {
       // Reload users
       await loadUsers();
 
-      // Close modal after 3 seconds
-      setTimeout(() => {
-        setIsAddUserOpen(false);
-        setCreateSuccess('');
-      }, 3000);
-
     } catch (err: any) {
       console.error('Failed to create user:', err);
       if (err.response?.status === 400) {
@@ -194,6 +203,60 @@ export default function UsersPage() {
       }
     } finally {
       setIsCreatingUser(false);
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!userToEdit) return;
+    
+    try {
+      setIsUpdatingUser(true);
+      setUpdateError('');
+      setUpdateSuccess('');
+
+      // Validate required fields
+      if (!editUserData.first_name?.trim() || !editUserData.last_name?.trim() || !editUserData.email?.trim()) {
+        setUpdateError('Please fill in all required fields');
+        return;
+      }
+
+      // Prepare update data (only include fields that have values)
+      const updateData: UpdateUserData = {};
+      if (editUserData.first_name?.trim()) updateData.first_name = editUserData.first_name.trim();
+      if (editUserData.last_name?.trim()) updateData.last_name = editUserData.last_name.trim();
+      if (editUserData.email?.trim()) updateData.email = editUserData.email.trim();
+      if (editUserData.password?.trim()) updateData.password = editUserData.password.trim();
+      if (editUserData.role_id) updateData.role_id = editUserData.role_id;
+
+      const response = await userApi.updateUser(updateData, userToEdit.user_id);
+      
+      setUpdateSuccess('User updated successfully!');
+      
+      // Update user in local state
+      setUsers(prev => prev.map(user => 
+        user.user_id === userToEdit.user_id 
+          ? { ...user, ...updateData, updated_at: new Date().toISOString() }
+          : user
+      ));
+
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        setIsEditUserOpen(false);
+        setUpdateSuccess('');
+        setUserToEdit(null);
+      }, 2000);
+
+    } catch (err: any) {
+      console.error('Failed to update user:', err);
+      if (err.response?.status === 400) {
+        setUpdateError('Email already in use or invalid data');
+      } else if (err.response?.status === 404) {
+        setUpdateError('User not found');
+      } else {
+        setUpdateError('Failed to update user. Please try again.');
+      }
+    } finally {
+      setIsUpdatingUser(false);
     }
   };
 
@@ -231,6 +294,20 @@ export default function UsersPage() {
     setDeleteError('');
   };
 
+  const openEditModal = (user: UserData) => {
+    setUserToEdit(user);
+    setEditUserData({
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      password: '',
+      role_id: user.role_id,
+    });
+    setIsEditUserOpen(true);
+    setUpdateError('');
+    setUpdateSuccess('');
+  };
+
   const resetCreateForm = () => {
     setNewUser({
       first_name: '',
@@ -240,6 +317,19 @@ export default function UsersPage() {
     });
     setCreateError('');
     setCreateSuccess('');
+  };
+
+  const resetEditForm = () => {
+    setEditUserData({
+      first_name: '',
+      last_name: '',
+      email: '',
+      password: '',
+      role_id: 2,
+    });
+    setUpdateError('');
+    setUpdateSuccess('');
+    setUserToEdit(null);
   };
 
   const getUserInitials = (user: UserData) => {
@@ -292,7 +382,7 @@ export default function UsersPage() {
       cell: ({ row }) => {
         const user = row.original;
         return (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 pl-3">
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-black text-white text-xs font-bold">
                 {getUserInitials(user)}
@@ -413,6 +503,15 @@ export default function UsersPage() {
               title="View Profile"
             >
               <Eye className="h-4 w-4 text-gray-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEditModal(user)}
+              className="h-8 w-8 p-0 hover:bg-blue-100"
+              title="Edit User"
+            >
+              <Edit className="h-4 w-4 text-gray-600 hover:text-blue-600" />
             </Button>
             {!isAdmin && (
               <Button
@@ -614,6 +713,130 @@ export default function UsersPage() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditUserOpen} onOpenChange={(open) => {
+          setIsEditUserOpen(open);
+          if (!open) resetEditForm();
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information. Leave password empty to keep current password.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {updateError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{updateError}</AlertDescription>
+                </Alert>
+              )}
+              
+              {updateSuccess && (
+                <Alert className="border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    {updateSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_first_name">First Name *</Label>
+                  <Input
+                    id="edit_first_name"
+                    value={editUserData.first_name || ''}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, first_name: e.target.value }))}
+                    placeholder="John"
+                    disabled={isUpdatingUser}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_last_name">Last Name *</Label>
+                  <Input
+                    id="edit_last_name"
+                    value={editUserData.last_name || ''}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, last_name: e.target.value }))}
+                    placeholder="Doe"
+                    disabled={isUpdatingUser}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_email">Email *</Label>
+                <Input
+                  id="edit_email"
+                  type="email"
+                  value={editUserData.email || ''}
+                  onChange={(e) => setEditUserData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="john.doe@example.com"
+                  disabled={isUpdatingUser}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_role">Role</Label>
+                <Select
+                  value={editUserData.role_id?.toString() || '2'}
+                  onValueChange={(value) => setEditUserData(prev => ({ ...prev, role_id: parseInt(value) }))}
+                  disabled={isUpdatingUser}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Admin</SelectItem>
+                    <SelectItem value="2">Client</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_password">New Password (optional)</Label>
+                <Input
+                  id="edit_password"
+                  type="password"
+                  value={editUserData.password || ''}
+                  onChange={(e) => setEditUserData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Leave empty to keep current password"
+                  disabled={isUpdatingUser}
+                />
+                <p className="text-xs text-gray-500">
+                  Only enter a new password if you want to change it
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditUserOpen(false)}
+                disabled={isUpdatingUser}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateUser}
+                disabled={isUpdatingUser}
+                className="bg-black text-white hover:bg-gray-900"
+              >
+                {isUpdatingUser ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update User'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete User Confirmation Dialog */}
         <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
