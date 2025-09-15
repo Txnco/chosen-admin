@@ -5,10 +5,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -26,15 +24,10 @@ import {
   TrendingUp, 
   TrendingDown,
   Calendar,
-  Clock,
   Activity,
   AlertCircle,
-  FileText,
-  MessageSquare,
-  BarChart3,
   Eye,
   ArrowUpRight,
-  Loader2
 } from 'lucide-react';
 import { userApi, UserData } from '@/lib/api';
 import { format, subDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
@@ -123,7 +116,7 @@ export default function DashboardPage() {
         weeklyGrowthPercentage
       });
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load dashboard data:', err);
       setError('Failed to load dashboard data');
     } finally {
@@ -218,7 +211,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard</h1>
             <p className="text-gray-600">
-              Welcome back! Here's what's happening with your users today.
+              Welcome back! Here&apos;s what&apos;s happening with your users today.
             </p>
           </div>
 

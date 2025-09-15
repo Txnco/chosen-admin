@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://admin.chosen-international.com/api';
 
@@ -22,7 +22,7 @@ api.interceptors.request.use((config) => {
 // Handle token expiration
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: AxiosError) => { // typed instead of any
     if (error.response?.status === 401) {
       localStorage.removeItem('admin_token');
       window.location.href = '/login';
@@ -143,7 +143,7 @@ export const userApi = {
     return response.data;
   },
 
-  deleteUser: async (userId: number): Promise<any> => {
+  deleteUser: async (userId: number): Promise<UserData> => {
     const response = await api.delete(`/user/${userId}`);
     return response.data;
   },

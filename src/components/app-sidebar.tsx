@@ -4,16 +4,13 @@ import * as React from "react"
 import {
   LayoutDashboard,
   Users,
-  FileText,
-  MessageSquare,
   Settings,
-  BarChart3,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import Image from 'next/image'
 import {
   Sidebar,
   SidebarContent,
@@ -47,7 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   const getProfileImageUrl = () => {
-    if (!user || isLoading) return null;
+    if (!user || isLoading || !user.profile_picture) return undefined; // changed from null
     return `https://admin.chosen-international.com/public/uploads/profile/${user.profile_picture}`;
   };
 
@@ -113,9 +110,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard">
                 <div className=" text-white flex aspect-square size-8 items-center justify-center rounded-lg">
-                   <img
+                  <Image
                     src="https://admin.chosen-international.com/public/assets/logo/ChosenLogo.svg"
                     alt="Chosen Logo"
+                    width={32}
+                    height={32}
+                    unoptimized
                     className="w-full h-full object-contain"
                   />
                 </div>

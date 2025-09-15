@@ -46,7 +46,6 @@ import {
   Search, 
   Eye, 
   UserPlus, 
-  MoreHorizontal,
   AlertCircle,
   Loader2,
   ArrowUpDown,
@@ -58,19 +57,15 @@ import {
   Upload
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import Image from 'next/image';
 import { userApi, authApi, UserData, CreateUserData, UpdateUserData } from '@/lib/api';
+import type { AxiosError } from 'axios';
 import { format } from 'date-fns';
 import {
   ColumnDef,
@@ -159,9 +154,14 @@ export default function UsersPage() {
       setError('');
       const data = await userApi.getAll();
       setUsers(data);
-    } catch (err: any) {
-      if (err.response?.status === 403) {
-        setError('Access denied. You need admin privileges to view users.');
+    } catch (error: unknown) { // was (err: any)
+      if (typeof error === 'object' && error && 'response' in error) {
+        const e = error as { response?: { status?: number } };
+        if (e.response?.status === 403) {
+          setError('Access denied. You need admin privileges to view users.');
+        } else {
+          setError('Failed to load users. Please try again.');
+        }
       } else {
         setError('Failed to load users. Please try again.');
       }
@@ -259,6 +259,14 @@ export default function UsersPage() {
     setUpdateError('');
   };
 
+  const isAxiosError = (error: unknown): error is AxiosError => {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { isAxiosError?: unknown }).isAxiosError === true
+    );
+  };
+
   const handleCreateUser = async () => {
     try {
       setIsCreatingUser(true);
@@ -298,9 +306,10 @@ export default function UsersPage() {
       // Reload users
       await loadUsers();
 
-    } catch (err: any) {
-      console.error('Failed to create user:', err);
-      if (err.response?.status === 400) {
+    } catch (error: unknown) {
+      console.error('Failed to create user:', error);
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 400) {
         setCreateError('A user with this email already exists');
       } else {
         setCreateError('Failed to create user. Please try again.');
@@ -337,16 +346,33 @@ export default function UsersPage() {
         updateData.password = editUserData.password.trim();
       }
 
-      const response = await userApi.updateUser(updateData, userToEdit.user_id);
+      await userApi.updateUser(updateData, userToEdit.user_id);
       
       setUpdateSuccess('User updated successfully!');
       
-      // Update user in local state
-      setUsers(prev => prev.map(user => 
-        user.user_id === userToEdit.user_id 
-          ? { ...user, ...updateData, updated_at: new Date().toISOString() }
-          : user
-      ));
+      setUsers(prev =>
+      prev.map(user => {
+        if (user.user_id !== userToEdit.user_id) return user;
+
+        // Start with the old user
+        const updated: UserData = {
+          ...user,
+          first_name: updateData.first_name ?? user.first_name,
+          last_name: updateData.last_name ?? user.last_name,
+          email: updateData.email ?? user.email,
+          role_id: updateData.role_id ?? user.role_id,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Only overwrite profile_picture if it's a string
+        if (typeof updateData.profile_picture === "string") {
+          updated.profile_picture = updateData.profile_picture;
+        }
+
+        return updated;
+      })
+    );
+
 
       // Close modal after 2 seconds
       setTimeout(() => {
@@ -355,11 +381,12 @@ export default function UsersPage() {
         setUserToEdit(null);
       }, 2000);
 
-    } catch (err: any) {
-      console.error('Failed to update user:', err);
-      if (err.response?.status === 400) {
+    } catch (error: unknown) {
+      console.error('Failed to update user:', error);
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 400) {
         setUpdateError('Email already in use or invalid data');
-      } else if (err.response?.status === 404) {
+      } else if (status === 404) {
         setUpdateError('User not found');
       } else {
         setUpdateError('Failed to update user. Please try again.');
@@ -385,9 +412,10 @@ export default function UsersPage() {
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
       
-    } catch (err: any) {
-      console.error('Failed to delete user:', err);
-      if (err.response?.status === 403) {
+     } catch (error: unknown) {
+      console.error('Failed to delete user:', error);
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 403) {
         setDeleteError('Access denied. You need admin privileges to delete users.');
       } else {
         setDeleteError('Failed to delete user. Please try again.');
@@ -783,9 +811,12 @@ export default function UsersPage() {
                   <div className="space-y-3">
                         {newUserPreviewUrl && (
                           <div className="flex items-center gap-3">
-                            <img
+                            <Image
                               src={newUserPreviewUrl}
                               alt="Profile preview"
+                              width={64}
+                              height={64}
+                              unoptimized
                               className="w-16 h-16 rounded-full object-cover border"
                             />
                             <p className="text-sm text-gray-600">
@@ -932,9 +963,12 @@ export default function UsersPage() {
                 <div className="space-y-3">
                     {(editUserPreviewUrl || userToEdit?.profile_picture) && (
                       <div className="flex items-center gap-3">
-                        <img
+                        <Image
                           src={editUserPreviewUrl || getProfileImageUrl(userToEdit?.profile_picture) || ''}
                           alt="Profile preview"
+                          width={64}
+                          height={64}
+                          unoptimized
                           className="w-16 h-16 rounded-full object-cover border"
                         />
                         <p className="text-sm text-gray-600">

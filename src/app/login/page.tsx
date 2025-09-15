@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -44,8 +45,8 @@ export default function LoginPage() {
       } else {
         setError(result.error || 'Login failed');
       }
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+    } catch (error) {
+      setError('An unexpected error occurred. Please try again. ' + (error instanceof Error ? error.message : ''));
     } finally {
       setIsSubmitting(false);
     }
@@ -67,9 +68,12 @@ export default function LoginPage() {
           {/* Logo and Title */}
           <div className="text-center mb-12">
             <div className="mb-6">
-              <img
+              <Image
                 src="https://admin.chosen-international.com/public/assets/logo/ChosenLogo.svg"
                 alt="CHOSEN Logo"
+                width={96}
+                height={96}
+                unoptimized
                 className="w-24 h-24 mx-auto object-contain"
               />
             </div>

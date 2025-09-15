@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Settings,
   BarChart3,
-  User
 } from 'lucide-react';
 
 const navigation = [

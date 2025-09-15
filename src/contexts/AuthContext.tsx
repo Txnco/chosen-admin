@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authApi, userApi, AuthValidation, UserData } from '@/lib/api';
+import axios, { AxiosError } from 'axios';
 
 interface AuthContextType {
   user: UserData | null;
@@ -13,6 +14,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const isAxiosError = (err: unknown): err is AxiosError => axios.isAxiosError(err);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -60,8 +63,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       setAuthData(validation);
       setUser(userData);
-    } catch (error) {
-      console.error('Auth validation failed:', error);
+    } catch (err: unknown) { // typed
+      console.error('Auth validation failed:', err);
       localStorage.removeItem('admin_token');
       setUser(null);
       setAuthData(null);
@@ -94,14 +97,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userData);
       
       return { success: true };
-    } catch (error: any) {
-      console.error('Login failed:', error);
+     } catch (err: unknown) {
+      console.error('Login failed:', err);
       localStorage.removeItem('admin_token');
-      
-      if (error.response?.status === 401) {
+
+      if (isAxiosError(err) && err.response?.status === 401) {
         return { success: false, error: 'Invalid email or password' };
       }
-      
+
       return { success: false, error: 'Login failed. Please try again.' };
     }
   };
