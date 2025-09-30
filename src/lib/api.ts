@@ -76,6 +76,60 @@ export interface UpdateUserData {
   profile_picture?: File;
 }
 
+export interface WaterTracking {
+  id: number;
+  user_id: number;
+  water_intake: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface WeightTracking {
+  id: number;
+  user_id: number;
+  weight: number;
+  date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DayRating {
+  id: number;
+  user_id: number;
+  score: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProgressPhoto {
+  id: number;
+  user_id: number;
+  angle: 'front' | 'side' | 'back';
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Questionnaire {
+  id: number;
+  user_id: number;
+  weight: number | null;
+  height: number | null;
+  age: number | null;
+  health_issues: string | null;
+  bad_habits: string | null;
+  workout_environment: string | null;
+  work_shift: string | null;
+  wake_up_time: string | null;
+  sleep_time: string | null;
+  morning_routine: string | null;
+  evening_routine: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Auth API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
@@ -94,7 +148,7 @@ export const authApi = {
       formData.append('profile_picture', userData.profile_picture);
     }
 
-    const response = await api.post('/user/register', formData, {
+    const response = await api.post('/auth/register', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -154,6 +208,61 @@ export const userApi = {
     } else {
       return userApi.getMe();
     }
+  },
+};
+
+// Water Tracking API
+export const waterApi = {
+  getUserStats: async (userId: number, date?: string): Promise<any> => {
+    const params = date ? { target_date: date } : {};
+    const response = await api.get(`/water/admin/user/${userId}/stats/daily`, { params });
+    return response.data;
+  },
+  
+  getUserIntake: async (userId: number, startDate?: string, endDate?: string): Promise<WaterTracking[]> => {
+    const params: any = { user_id: userId };
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const response = await api.get('/water/intake', { params });
+    return response.data;
+  },
+};
+
+// Weight Tracking API
+export const weightApi = {
+  getUserWeight: async (userId: number): Promise<WeightTracking[]> => {
+    const response = await api.get('/tracking/weight', {
+      params: { user_id: userId }
+    });
+    return response.data;
+  },
+};
+
+// Day Rating API
+export const ratingApi = {
+  getUserRatings: async (userId: number): Promise<DayRating[]> => {
+    const response = await api.get('/tracking/day-rating', {
+      params: { user_id: userId }
+    });
+    return response.data;
+  },
+};
+
+// Progress Photos API
+export const photosApi = {
+  getUserPhotos: async (userId: number, angle?: 'front' | 'side' | 'back'): Promise<ProgressPhoto[]> => {
+    const params: any = { user_id: userId };
+    if (angle) params.angle = angle;
+    const response = await api.get('/tracking/progress-photos', { params });
+    return response.data;
+  },
+};
+
+// Questionnaire API
+export const questionnaireApi = {
+  getUserQuestionnaire: async (userId: number): Promise<Questionnaire | null> => {
+    const response = await api.get(`/questionnaire/admin/user/${userId}`);
+    return response.data;
   },
 };
 

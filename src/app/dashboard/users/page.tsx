@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ClientSelector } from '@/components/ClientSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
@@ -768,6 +769,9 @@ export default function UsersPage() {
               Manage and monitor all registered users in the system.
             </p>
           </div>
+
+          
+          <ClientSelector/>
           
           {/* Add User Dialog */}
           <Dialog open={isAddUserOpen} onOpenChange={(open) => {
