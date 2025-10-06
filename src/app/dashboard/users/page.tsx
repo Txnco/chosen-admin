@@ -487,7 +487,7 @@ export default function UsersPage() {
 
   const getProfileImageUrl = (profilePicture?: string) => {
     if (!profilePicture) return null;
-    return `https://admin.chosen-international.com/public/uploads/profile/${profilePicture}`;
+    return  process.env.NEXT_PUBLIC_UPLOADS_PATH + `/uploads/profile/${profilePicture}`;
   };
 
   const getRoleName = (roleId: number) => {

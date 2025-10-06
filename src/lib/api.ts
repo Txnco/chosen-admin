@@ -504,8 +504,12 @@ export const chatApi = {
     return response.data;
   },
 
-  sendMessage: async (threadId: number, body: string): Promise<ChatMessageData> => {
-    const response = await api.post('/chat/message', { thread_id: threadId, body });
+  sendMessage: async (threadId: number, body: string, imageUrl?: string): Promise<ChatMessageData> => {
+    const response = await api.post('/chat/message', { 
+      thread_id: threadId, 
+      body,
+      image_url: imageUrl 
+    });
     return response.data;
   },
 
@@ -552,11 +556,9 @@ export const chatApi = {
     return response.data;
   },
 
-  // Helper function to get full file URL
   getFileUrl: (fileUrl: string): string => {
-    if (fileUrl.startsWith('http')) {
-      return fileUrl;
-    }
+    if (!fileUrl) return '';
+    if (fileUrl.startsWith('http')) return fileUrl;
     return `${API_BASE_URL.replace('/api', '')}${fileUrl}`;
   }
 };

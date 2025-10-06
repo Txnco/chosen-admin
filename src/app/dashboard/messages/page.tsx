@@ -176,26 +176,27 @@ export default function MessagesPage() {
 
     try {
       setIsSendingMessage(true);
+      setError('');
+      
       const newMessage = await chatApi.sendMessage(selectedThreadId, messageInput.trim());
       
       setMessages(prev => [...prev, newMessage]);
       const messageTrimmed = messageInput.trim();
       setMessageInput('');
       
-      // Update thread with last message - use both fields for compatibility
       setThreads(prev => prev.map(thread => 
         thread.id === selectedThreadId 
           ? { 
               ...thread, 
               last_message: messageTrimmed,
-              last_message_text: messageTrimmed, // Also update this field
+              last_message_text: messageTrimmed,
               last_message_at: new Date().toISOString() 
             }
           : thread
       ));
     } catch (err: any) {
       console.error('Failed to send message:', err);
-      setError('Failed to send message');
+      setError('Failed to send message. Please try again.');
     } finally {
       setIsSendingMessage(false);
     }
@@ -214,10 +215,20 @@ export default function MessagesPage() {
 
     try {
       setIsSendingMessage(true);
+      setError('');
+      
+      // Upload file first
       const uploadResult = await chatApi.uploadFile(file);
       
-      const fileMessage = `📎 File: ${uploadResult.file_name}`;
-      const newMessage = await chatApi.sendMessage(selectedThreadId, fileMessage);
+      // Create message body based on file type
+      let messageBody = `📎 ${uploadResult.file_name}`;
+      
+      // Send message with file URL
+      const newMessage = await chatApi.sendMessage(
+        selectedThreadId, 
+        messageBody,
+        uploadResult.file_url  // Pass the file URL
+      );
       
       setMessages(prev => [...prev, newMessage]);
       
@@ -226,15 +237,15 @@ export default function MessagesPage() {
         thread.id === selectedThreadId 
           ? { 
               ...thread, 
-              last_message: fileMessage,
-              last_message_text: fileMessage,
+              last_message: messageBody,
+              last_message_text: messageBody,
               last_message_at: new Date().toISOString() 
             }
           : thread
       ));
     } catch (err: any) {
       console.error('Failed to upload file:', err);
-      setError('Failed to upload file');
+      setError('Failed to upload file. Please try again.');
     } finally {
       setIsSendingMessage(false);
       if (fileInputRef.current) {
