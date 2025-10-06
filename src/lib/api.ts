@@ -546,6 +546,19 @@ export const chatApi = {
     const response = await api.post('/chat/threads', { client_id: clientId });
     return response.data;
   },
+
+  getTotalUnreadCount: async (): Promise<{ unread_count: number }> => {
+    const response = await api.get('/chat/unread-count');
+    return response.data;
+  },
+
+  // Helper function to get full file URL
+  getFileUrl: (fileUrl: string): string => {
+    if (fileUrl.startsWith('http')) {
+      return fileUrl;
+    }
+    return `${API_BASE_URL.replace('/api', '')}${fileUrl}`;
+  }
 };
 
 export default api;

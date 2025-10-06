@@ -320,6 +320,22 @@ export default function MessagesPage() {
     }
   };
 
+  const isImageFile = (url: string): boolean => {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    return imageExtensions.some(ext => url.toLowerCase().endsWith(ext));
+  };
+
+  const getFileIcon = (contentType?: string) => {
+    if (!contentType) return '📄';
+    
+    if (contentType.startsWith('image/')) return '🖼️';
+    if (contentType.startsWith('audio/')) return '🎵';
+    if (contentType.includes('pdf')) return '📕';
+    if (contentType.includes('word') || contentType.includes('document')) return '📝';
+    
+    return '📄';
+  };
+
   const filteredThreads = threads.filter(thread => {
     const clientName = user?.role_id === 1 ? thread.client_name : thread.trainer_name;
     return clientName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -509,6 +525,7 @@ export default function MessagesPage() {
                         {messages.map((message, index) => {
                           const isOwnMessage = message.user_id === user?.user_id;
                           const showAvatar = index === 0 || messages[index - 1].user_id !== message.user_id;
+                          const hasAttachment = !!message.image_url;
                           
                           return (
                             <div
@@ -540,16 +557,74 @@ export default function MessagesPage() {
                                     : "bg-white text-gray-900 rounded-bl-md border border-gray-200"
                                 )}
                               >
-                                {message.body.startsWith('📎') ? (
-                                  <div className="flex items-center gap-2">
-                                    <Paperclip className="h-4 w-4" />
-                                    <p className="text-sm font-medium">{message.body.replace('📎 File: ', '')}</p>
+                                {hasAttachment ? (
+                                  <div className="space-y-2">
+                                    {isImageFile(message.image_url!) ? (
+                                      // Image preview
+                                      <a 
+                                        href={chatApi.getFileUrl(message.image_url!)} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="block"
+                                      >
+                                        <img
+                                          src={chatApi.getFileUrl(message.image_url!)}
+                                          alt="Attachment"
+                                          className="rounded-lg max-w-full h-auto max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                          onError={(e) => {
+                                            // Fallback if image fails to load
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                          }}
+                                        />
+                                      </a>
+                                    ) : (
+                                      // File attachment (non-image)
+                                      <a 
+                                        href={chatApi.getFileUrl(message.image_url!)} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className={cn(
+                                          "flex items-center gap-3 p-3 rounded-lg transition-colors",
+                                          isOwnMessage 
+                                            ? "bg-white/10 hover:bg-white/20" 
+                                            : "bg-gray-50 hover:bg-gray-100"
+                                        )}
+                                      >
+                                        <div className={cn(
+                                          "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                                          isOwnMessage ? "bg-white/20" : "bg-gray-200"
+                                        )}>
+                                          <Paperclip className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">
+                                            {message.body.replace('📎 ', '')}
+                                          </p>
+                                          <p className={cn(
+                                            "text-xs",
+                                            isOwnMessage ? "text-gray-300" : "text-gray-500"
+                                          )}>
+                                            Click to view
+                                          </p>
+                                        </div>
+                                      </a>
+                                    )}
+                                    
+                                    {/* Show body text if it's not just the attachment indicator */}
+                                    {message.body && !message.body.startsWith('📎') && (
+                                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                        {message.body}
+                                      </p>
+                                    )}
                                   </div>
                                 ) : (
+                                  // Regular text message
                                   <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                                     {message.body}
                                   </p>
                                 )}
+                                
                                 <p
                                   className={cn(
                                     "text-xs mt-1.5",
