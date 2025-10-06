@@ -1,14 +1,19 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { ratingApi, DayRating } from '@/lib/api';
-import { Star } from 'lucide-react';
+import { dayRatingApi, DayRatingData } from '@/lib/api';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Star, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface RatingViewProps {
   userId: number;
 }
 
 export function RatingView({ userId }: RatingViewProps) {
-  const [ratings, setRatings] = useState<DayRating[]>([]);
+  const [ratings, setRatings] = useState<DayRatingData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadRatings();
@@ -16,17 +21,34 @@ export function RatingView({ userId }: RatingViewProps) {
 
   const loadRatings = async () => {
     try {
-      const data = await ratingApi.getUserRatings(userId);
+      setIsLoading(true);
+      setError('');
+      const data = await dayRatingApi.getAll(userId);
       setRatings(data);
     } catch (err) {
       console.error('Failed to load ratings:', err);
+      setError('Failed to load day ratings');
     } finally {
       setIsLoading(false);
     }
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-black" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <p className="text-red-600">{error}</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   const averageScore = ratings.length > 0
@@ -84,7 +106,7 @@ export function RatingView({ userId }: RatingViewProps) {
                     </p>
                   </div>
                   {rating.note && (
-                    <p className="text-sm text-gray-700 mt-2">{rating.note}</p>
+                    <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{rating.note}</p>
                   )}
                 </div>
               ))
@@ -98,4 +120,4 @@ export function RatingView({ userId }: RatingViewProps) {
   );
 }
 
-export default { RatingView };
+export default RatingView;

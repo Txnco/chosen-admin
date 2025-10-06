@@ -83,10 +83,10 @@ function ViewUserPageInner() {
       const userData = await userApi.getById(userId!);
       
       // Check if user is a client (role_id = 2)
-      if (userData.role_id !== 2) {
-        setError('This view is only available for client users');
-        return;
-      }
+      // if (userData.role_id !== 2) {
+      //   setError('This view is only available for client users');
+      //   return;
+      // }
       
       setUser(userData);
     } catch (err: any) {

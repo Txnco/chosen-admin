@@ -1,15 +1,21 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { photosApi, ProgressPhoto } from '@/lib/api';
+import { progressPhotoApi, ProgressPhotoData } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { format } from 'date-fns';
 
 interface PhotosViewProps {
   userId: number;
 }
 
 export function PhotosView({ userId }: PhotosViewProps) {
-  const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [photos, setPhotos] = useState<ProgressPhotoData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedAngle, setSelectedAngle] = useState<'front' | 'side' | 'back' | 'all'>('all');
 
   useEffect(() => {
@@ -18,17 +24,34 @@ export function PhotosView({ userId }: PhotosViewProps) {
 
   const loadPhotos = async () => {
     try {
-      const data = await photosApi.getUserPhotos(userId);
+      setIsLoading(true);
+      setError('');
+      const data = await progressPhotoApi.getAll(userId);
       setPhotos(data);
     } catch (err) {
       console.error('Failed to load photos:', err);
+      setError('Failed to load progress photos');
     } finally {
       setIsLoading(false);
     }
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-black" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-red-600">{error}</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   const filteredPhotos = selectedAngle === 'all'
@@ -84,4 +107,4 @@ export function PhotosView({ userId }: PhotosViewProps) {
   );
 }
 
-export default {  PhotosView };
+export default PhotosView;

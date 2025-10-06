@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   LayoutDashboard,
   Users,
+  MessagesSquare,
   Settings,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
@@ -75,18 +76,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: Users,
         isActive: pathname.startsWith("/dashboard/users"),
       },
-      // {
-      //   title: "Questionnaires",
-      //   url: "/dashboard/questionnaires", 
-      //   icon: FileText,
-      //   isActive: pathname.startsWith("/dashboard/questionnaires"),
-      // },
-      // {
-      //   title: "Messages",
-      //   url: "/dashboard/messages",
-      //   icon: MessageSquare,
-      //   isActive: pathname.startsWith("/dashboard/messages"),
-      // },
+      {
+        title: "Messages",
+        url: "/dashboard/messages", 
+        icon: MessagesSquare,
+        isActive: pathname.startsWith("/dashboard/messages"),
+      },
       // {
       //   title: "Analytics",
       //   url: "/dashboard/analytics",

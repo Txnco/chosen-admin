@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Droplets, TrendingUp, Calendar } from 'lucide-react';
-import { waterApi, WaterTracking } from '@/lib/api';
+import { waterApi, WaterTrackingData, WaterStatsDaily } from '@/lib/api';
 import { format, subDays } from 'date-fns';
 import {
   LineChart,
@@ -22,8 +22,8 @@ interface WaterViewProps {
 }
 
 export default function WaterView({ userId }: WaterViewProps) {
-  const [stats, setStats] = useState<any>(null);
-  const [intake, setIntake] = useState<WaterTracking[]>([]);
+  const [stats, setStats] = useState<WaterStatsDaily | null>(null);
+  const [intake, setIntake] = useState<WaterTrackingData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -36,18 +36,23 @@ export default function WaterView({ userId }: WaterViewProps) {
       setIsLoading(true);
       setError('');
 
-      // Get today's stats
-      const todayStats = await waterApi.getUserStats(userId);
-      setStats(todayStats);
+      // Get today's stats using admin route
+    //   const todayStats = await waterApi.getUserDailyStats(userId);
+    //   setStats(todayStats);
 
       // Get last 30 days of intake
       const endDate = new Date();
       const startDate = subDays(endDate, 30);
-      const intakeData = await waterApi.getUserIntake(
-        userId,
-        format(startDate, 'yyyy-MM-dd'),
-        format(endDate, 'yyyy-MM-dd')
-      );
+      
+      // Note: Since there's no admin route to get user's intake history,
+      // we'll use the regular getIntakes endpoint
+      // You may need to add an admin endpoint in your API for this
+      const intakeData = await waterApi.getIntakes({
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        end_date: format(endDate, 'yyyy-MM-dd'),
+        limit: 100,
+        order: 'desc'
+      });
       setIntake(intakeData);
     } catch (err: any) {
       console.error('Failed to load water data:', err);
@@ -57,14 +62,23 @@ export default function WaterView({ userId }: WaterViewProps) {
     }
   };
 
-  // Prepare chart data
-  const chartData = intake
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    .slice(-14) // Last 14 days
-    .map(entry => ({
-      date: format(new Date(entry.created_at), 'MMM dd'),
-      intake: entry.water_intake,
-    }));
+  // Prepare chart data - group by date and sum intake
+  const groupedData = intake.reduce((acc, entry) => {
+    const date = format(new Date(entry.created_at), 'yyyy-MM-dd');
+    if (!acc[date]) {
+      acc[date] = 0;
+    }
+    acc[date] += entry.water_intake;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const chartData = Object.entries(groupedData)
+    .map(([date, totalIntake]) => ({
+      date: format(new Date(date), 'MMM dd'),
+      intake: totalIntake,
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-14); // Last 14 days
 
   if (isLoading) {
     return (
@@ -76,9 +90,11 @@ export default function WaterView({ userId }: WaterViewProps) {
 
   if (error) {
     return (
-      <div className="text-center py-20">
-        <p className="text-red-600">{error}</p>
-      </div>
+      <Card>
+        <CardContent className="text-center py-12">
+          <p className="text-red-600">{error}</p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -203,5 +219,3 @@ export default function WaterView({ userId }: WaterViewProps) {
     </div>
   );
 }
-
-
