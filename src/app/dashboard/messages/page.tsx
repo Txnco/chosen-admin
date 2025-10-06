@@ -23,6 +23,13 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   MessageSquare, 
   Send, 
@@ -31,9 +38,10 @@ import {
   Paperclip,
   Search,
   X,
-  Image as ImageIcon
+  Plus,
+  UserPlus
 } from 'lucide-react';
-import { chatApi, ChatThreadData, ChatMessageData } from '@/lib/api';
+import { chatApi, ChatThreadData, ChatMessageData, AvailableClientData } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -41,7 +49,7 @@ import { cn } from '@/lib/utils';
 export default function MessagesPage() {
   const { user } = useAuth();
   const [threads, setThreads] = useState<ChatThreadData[]>([]);
-  const [selectedThread, setSelectedThread] = useState<ChatThreadData | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null); // Changed to store ID
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,9 +59,20 @@ export default function MessagesPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [error, setError] = useState('');
   
+  // New conversation modal state
+  const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
+  const [availableClients, setAvailableClients] = useState<AvailableClientData[]>([]);
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [isCreatingThread, setIsCreatingThread] = useState(false);
+  const [createThreadError, setCreateThreadError] = useState('');
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Derived value: get the actual selected thread object
+  const selectedThread = threads.find(t => t.id === selectedThreadId) || null;
 
   useEffect(() => {
     loadThreads();
@@ -61,8 +80,8 @@ export default function MessagesPage() {
     // Poll for new messages every 3 seconds
     pollIntervalRef.current = setInterval(() => {
       loadThreads();
-      if (selectedThread) {
-        loadMessages(selectedThread.id, true);
+      if (selectedThreadId) {
+        loadMessages(selectedThreadId, true);
       }
     }, 3000);
 
@@ -71,18 +90,24 @@ export default function MessagesPage() {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, []);
+  }, [selectedThreadId]); // Add selectedThreadId to dependencies
 
   useEffect(() => {
-    if (selectedThread) {
-      loadMessages(selectedThread.id);
-      markThreadAsRead(selectedThread.id);
+    if (selectedThreadId) {
+      loadMessages(selectedThreadId);
+      markThreadAsRead(selectedThreadId);
     }
-  }, [selectedThread?.id]);
+  }, [selectedThreadId]); // Use selectedThreadId instead of selectedThread?.id
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (isNewConversationOpen) {
+      loadAvailableClients();
+    }
+  }, [isNewConversationOpen, clientSearchQuery]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,7 +116,7 @@ export default function MessagesPage() {
   const loadThreads = async () => {
     try {
       if (!isLoadingThreads) {
-        // Silent refresh
+        // Silent refresh - preserve selection
         const data = await chatApi.getThreads();
         setThreads(data);
       } else {
@@ -99,9 +124,9 @@ export default function MessagesPage() {
         const data = await chatApi.getThreads();
         setThreads(data);
         
-        // Auto-select first thread if available
-        if (data.length > 0 && !selectedThread) {
-          setSelectedThread(data[0]);
+        // Auto-select first thread if available and nothing is selected
+        if (data.length > 0 && !selectedThreadId) {
+          setSelectedThreadId(data[0].id);
         }
       }
     } catch (err: any) {
@@ -147,20 +172,23 @@ export default function MessagesPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!selectedThread || !messageInput.trim()) return;
+    if (!selectedThreadId || !messageInput.trim()) return;
 
     try {
       setIsSendingMessage(true);
-      const newMessage = await chatApi.sendMessage(selectedThread.id, messageInput.trim());
+      const newMessage = await chatApi.sendMessage(selectedThreadId, messageInput.trim());
       
       setMessages(prev => [...prev, newMessage]);
+      const messageTrimmed = messageInput.trim();
       setMessageInput('');
       
+      // Update thread with last message - use both fields for compatibility
       setThreads(prev => prev.map(thread => 
-        thread.id === selectedThread.id 
+        thread.id === selectedThreadId 
           ? { 
               ...thread, 
-              last_message: messageInput.trim(), 
+              last_message: messageTrimmed,
+              last_message_text: messageTrimmed, // Also update this field
               last_message_at: new Date().toISOString() 
             }
           : thread
@@ -182,18 +210,28 @@ export default function MessagesPage() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedThread) return;
+    if (!file || !selectedThreadId) return;
 
     try {
       setIsSendingMessage(true);
       const uploadResult = await chatApi.uploadFile(file);
       
-      const newMessage = await chatApi.sendMessage(
-        selectedThread.id, 
-        `📎 File: ${uploadResult.file_name}`
-      );
+      const fileMessage = `📎 File: ${uploadResult.file_name}`;
+      const newMessage = await chatApi.sendMessage(selectedThreadId, fileMessage);
       
       setMessages(prev => [...prev, newMessage]);
+      
+      // Update thread with last message
+      setThreads(prev => prev.map(thread => 
+        thread.id === selectedThreadId 
+          ? { 
+              ...thread, 
+              last_message: fileMessage,
+              last_message_text: fileMessage,
+              last_message_at: new Date().toISOString() 
+            }
+          : thread
+      ));
     } catch (err: any) {
       console.error('Failed to upload file:', err);
       setError('Failed to upload file');
@@ -202,6 +240,48 @@ export default function MessagesPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const loadAvailableClients = async () => {
+    try {
+      setIsLoadingClients(true);
+      setCreateThreadError('');
+      const data = await chatApi.getAvailableClients(clientSearchQuery || undefined);
+      setAvailableClients(data);
+    } catch (err: any) {
+      console.error('Failed to load available clients:', err);
+      setCreateThreadError('Failed to load available clients');
+    } finally {
+      setIsLoadingClients(false);
+    }
+  };
+
+  const handleStartConversation = async (clientId: number) => {
+    try {
+      setIsCreatingThread(true);
+      setCreateThreadError('');
+      
+      const newThread = await chatApi.createThread(clientId);
+      
+      // Add new thread to list
+      setThreads(prev => [newThread, ...prev]);
+      
+      // Select the new thread by ID
+      setSelectedThreadId(newThread.id);
+      
+      // Close modal
+      setIsNewConversationOpen(false);
+      setClientSearchQuery('');
+    } catch (err: any) {
+      console.error('Failed to create thread:', err);
+      if (err.response?.status === 400) {
+        setCreateThreadError('Conversation already exists with this client');
+      } else {
+        setCreateThreadError('Failed to start conversation');
+      }
+    } finally {
+      setIsCreatingThread(false);
     }
   };
 
@@ -271,24 +351,36 @@ export default function MessagesPage() {
           <div className="flex h-[calc(100vh-4rem)]">
             {/* Left Sidebar - Threads List */}
             <div className="w-80 border-r flex flex-col bg-gray-50">
-              {/* Search Header */}
-              <div className="p-4 bg-white border-b">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search conversations..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10"
-                  />
-                  {searchQuery && (
+              {/* Search Header with New Conversation Button */}
+              <div className="p-4 bg-white border-b space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search conversations..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-10"
+                    />
+                    {searchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {user?.role_id === 1 && (
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => setIsNewConversationOpen(true)}
+                      className="bg-black text-white hover:bg-gray-900 h-10 w-10 p-0"
+                      title="Start new conversation"
                     >
-                      <X className="h-4 w-4" />
+                      <Plus className="h-5 w-5" />
                     </Button>
                   )}
                 </div>
@@ -306,17 +398,31 @@ export default function MessagesPage() {
                     <p className="text-sm text-center">
                       {searchQuery ? 'No conversations found' : 'No conversations yet'}
                     </p>
+                    {user?.role_id === 1 && !searchQuery && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsNewConversationOpen(true)}
+                        className="mt-3"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Start conversation
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   filteredThreads.map((thread) => {
                     const isTrainer = user?.role_id === 1;
                     const otherPersonName = isTrainer ? thread.client_name : thread.trainer_name;
-                    const isSelected = selectedThread?.id === thread.id;
+                    const isSelected = selectedThreadId === thread.id;
+                    
+                    // Get last message - check both fields for compatibility
+                    const lastMessage = thread.last_message_text || thread.last_message || 'No messages yet';
 
                     return (
                       <button
                         key={thread.id}
-                        onClick={() => setSelectedThread(thread)}
+                        onClick={() => setSelectedThreadId(thread.id)}
                         className={cn(
                           "w-full p-4 flex items-start gap-3 hover:bg-white transition-colors border-b text-left",
                           isSelected && "bg-white border-l-4 border-l-black"
@@ -340,7 +446,7 @@ export default function MessagesPage() {
                           
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm text-gray-600 truncate flex-1">
-                              {thread.last_message_text || 'No messages yet'}
+                              {lastMessage}
                             </p>
                             {thread.unread_count > 0 && (
                               <Badge className="bg-black text-white rounded-full h-5 min-w-5 px-1.5 text-xs flex-shrink-0">
@@ -522,6 +628,102 @@ export default function MessagesPage() {
               )}
             </div>
           </div>
+
+          {/* New Conversation Modal */}
+          <Dialog open={isNewConversationOpen} onOpenChange={setIsNewConversationOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5" />
+                  Start New Conversation
+                </DialogTitle>
+                <DialogDescription>
+                  Search for a client to start a new conversation with
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {createThreadError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{createThreadError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search clients by name or email..."
+                    value={clientSearchQuery}
+                    onChange={(e) => setClientSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                  {clientSearchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                      onClick={() => setClientSearchQuery('')}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Available Clients List */}
+                <div className="border rounded-lg max-h-96 overflow-y-auto">
+                  {isLoadingClients ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : availableClients.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                      <UserPlus className="h-12 w-12 mb-3 text-gray-300" />
+                      <p className="text-sm font-medium">No clients found</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {clientSearchQuery 
+                          ? 'Try a different search term' 
+                          : 'All clients already have conversations'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {availableClients.map((client) => (
+                        <button
+                          key={client.user_id}
+                          onClick={() => handleStartConversation(client.user_id)}
+                          disabled={isCreatingThread}
+                          className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Avatar className="h-10 w-10 flex-shrink-0">
+                            <AvatarFallback className="bg-black text-white font-semibold text-sm">
+                              {getUserInitials(`${client.first_name} ${client.last_name}`)}
+                            </AvatarFallback>
+                          </Avatar>
+                          
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-medium text-sm text-gray-900 truncate">
+                              {client.first_name} {client.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {client.email}
+                            </p>
+                          </div>
+
+                          {isCreatingThread ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <MessageSquare className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </SidebarInset>
       </SidebarProvider>
     </ProtectedRoute>

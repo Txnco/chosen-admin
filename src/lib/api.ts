@@ -198,6 +198,14 @@ export interface ChatMessageData {
   updated_at: string;
 }
 
+export interface AvailableClientData {
+  user_id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  created_at: string;
+}
+
 // Auth API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
@@ -525,6 +533,17 @@ export const chatApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  getAvailableClients: async (search?: string): Promise<AvailableClientData[]> => {
+    const params = search ? { search } : {};
+    const response = await api.get('/chat/available-clients', { params });
+    return response.data;
+  },
+
+  createThread: async (clientId: number): Promise<ChatThreadData> => {
+    const response = await api.post('/chat/threads', { client_id: clientId });
     return response.data;
   },
 };
