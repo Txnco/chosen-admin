@@ -33,10 +33,11 @@ import WeightView from '@/components/viewuser/WeightView';
 import RatingView from '@/components/viewuser/RatingView';
 import PhotosView from '@/components/viewuser/PhotosView';
 import QuestionnaireView from '@/components/viewuser/QuestionnaireView';
+import CalendarView from '@/components/viewuser/CalendarView';
 
-type ViewType = 'water' | 'weight' | 'rating' | 'photos' | 'questionnaire';
+type ViewType = 'water' | 'weight' | 'rating' | 'photos' | 'questionnaire'  | 'calendar';
 
-const validTypes: ViewType[] = ['water', 'weight', 'rating', 'photos', 'questionnaire'];
+const validTypes: ViewType[] = ['water', 'weight', 'rating', 'photos', 'questionnaire', 'calendar'];
 
 const tabConfig: Record<ViewType, { label: string; icon: string }> = {
   water: { label: 'Water Tracking', icon: '💧' },
@@ -44,6 +45,7 @@ const tabConfig: Record<ViewType, { label: string; icon: string }> = {
   rating: { label: 'Daily Ratings', icon: '⭐' },
   photos: { label: 'Progress Photos', icon: '📸' },
   questionnaire: { label: 'Questionnaire', icon: '📋' },
+  calendar: { label: 'Calendar', icon: '📆' },
 };
 
 function ViewUserPageInner() {
@@ -82,12 +84,6 @@ function ViewUserPageInner() {
       setError('');
       const userData = await userApi.getById(userId!);
       
-      // Check if user is a client (role_id = 2)
-      // if (userData.role_id !== 2) {
-      //   setError('This view is only available for client users');
-      //   return;
-      // }
-      
       setUser(userData);
     } catch (err: any) {
       console.error('Failed to load user:', err);
@@ -122,6 +118,8 @@ function ViewUserPageInner() {
         return <PhotosView userId={user.user_id} />;
       case 'questionnaire':
         return <QuestionnaireView userId={user.user_id} />;
+      case 'calendar':
+        return <CalendarView userId={user.user_id} />;
       default:
         return null;
     }

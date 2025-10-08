@@ -206,6 +206,78 @@ export interface AvailableClientData {
   created_at: string;
 }
 
+export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface EventData {
+  id: number;
+  user_id: number;
+  title: string;
+  description?: string;
+  start_time: string; // ISO datetime string
+  end_time: string; // ISO datetime string
+  all_day: boolean;
+  repeat_type: RepeatType;
+  repeat_until?: string; // ISO datetime string
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  is_repeat_instance?: boolean; // For generated repeat instances
+}
+
+export interface EventWithUser extends EventData {
+  user_first_name?: string;
+  user_last_name?: string;
+  user_email?: string;
+  creator_first_name?: string;
+  creator_last_name?: string;
+}
+
+export interface EventCreate {
+  user_id: number;
+  title: string;
+  description?: string;
+  start_time: string; // ISO datetime string
+  end_time: string; // ISO datetime string
+  all_day?: boolean;
+  repeat_type?: RepeatType;
+  repeat_until?: string; // ISO datetime string
+}
+
+export interface EventUpdate {
+  title?: string;
+  description?: string;
+  start_time?: string;
+  end_time?: string;
+  all_day?: boolean;
+  repeat_type?: RepeatType;
+  repeat_until?: string;
+}
+
+export interface EventCopyData {
+  target_user_id: number;
+  target_date: string; // ISO datetime string
+}
+
+export interface EventBulkCopyData {
+  target_user_ids: number[];
+  target_dates: string[]; // Array of ISO datetime strings
+}
+
+export interface EventCopyResponse {
+  id: number;
+  event_id: number;
+  user_id: number;
+  date: string;
+  created_at: string;
+}
+
+export interface EventListParams {
+  user_id?: number;
+  start_date?: string; // ISO datetime string
+  end_date?: string; // ISO datetime string
+  include_repeating?: boolean;
+}
+
 // Auth API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
@@ -396,6 +468,129 @@ export const progressPhotoApi = {
   },
 };
 
+ export const eventApi = {
+  // Create a new event
+  create: async (data: EventCreate): Promise<EventData> => {
+    const response = await api.post('/events/', data);
+    return response.data;
+  },
+
+  // List events with optional filters
+  getAll: async (params?: EventListParams): Promise<EventData[]> => {
+    const response = await api.get('/events/', { params });
+    return response.data;
+  },
+
+  // Get a specific event by ID
+  getById: async (eventId: number): Promise<EventWithUser> => {
+    const response = await api.get(`/events/${eventId}`);
+    return response.data;
+  },
+
+  // Update an event (PATCH - partial update)
+  update: async (eventId: number, data: EventUpdate): Promise<EventData> => {
+    const response = await api.patch(`/events/${eventId}`, data);
+    return response.data;
+  },
+
+  // Delete an event
+  delete: async (eventId: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/events/${eventId}`);
+    return response.data;
+  },
+
+  // Copy an event to another user/date
+  copy: async (eventId: number, data: EventCopyData): Promise<EventCopyResponse> => {
+    const response = await api.post(`/events/${eventId}/copy`, data);
+    return response.data;
+  },
+
+  // Bulk copy an event to multiple users/dates
+  bulkCopy: async (eventId: number, data: EventBulkCopyData): Promise<EventCopyResponse[]> => {
+    const response = await api.post(`/events/${eventId}/bulk-copy`, data);
+    return response.data;
+  },
+
+  // Get all copies of an event (admin only)
+  getCopies: async (eventId: number): Promise<EventCopyResponse[]> => {
+    const response = await api.get(`/events/${eventId}/copies`);
+    return response.data;
+  },
+
+  // Get events for current user
+  getMyEvents: async (params?: {
+    start_date?: string;
+    end_date?: string;
+    include_repeating?: boolean;
+  }): Promise<EventData[]> => {
+    return eventApi.getAll(params);
+  },
+
+  // Get events for a specific user (admin only)
+  getUserEvents: async (userId: number, params?: {
+    start_date?: string;
+    end_date?: string;
+    include_repeating?: boolean;
+  }): Promise<EventData[]> => {
+    return eventApi.getAll({ ...params, user_id: userId });
+  },
+
+  // Get events for a specific date range (helper function)
+  getEventsByDateRange: async (
+    startDate: Date,
+    endDate: Date,
+    userId?: number,
+    includeRepeating: boolean = true
+  ): Promise<EventData[]> => {
+    const params: EventListParams = {
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      include_repeating: includeRepeating,
+    };
+    
+    if (userId) {
+      params.user_id = userId;
+    }
+    
+    return eventApi.getAll(params);
+  },
+
+  // Get events for today (helper function)
+  getTodayEvents: async (userId?: number): Promise<EventData[]> => {
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    
+    return eventApi.getEventsByDateRange(startOfDay, endOfDay, userId);
+  },
+
+  // Get events for this week (helper function)
+  getWeekEvents: async (userId?: number): Promise<EventData[]> => {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // End of week (Saturday)
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    return eventApi.getEventsByDateRange(startOfWeek, endOfWeek, userId);
+  },
+
+  // Get events for this month (helper function)
+  getMonthEvents: async (userId?: number, year?: number, month?: number): Promise<EventData[]> => {
+    const now = new Date();
+    const targetYear = year ?? now.getFullYear();
+    const targetMonth = month ?? now.getMonth();
+    
+    const startOfMonth = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
+    
+    return eventApi.getEventsByDateRange(startOfMonth, endOfMonth, userId);
+  },
+};
+
 // NEW: Water Tracking API
 export const waterApi = {
   // Goals
@@ -561,6 +756,11 @@ export const chatApi = {
     if (fileUrl.startsWith('http')) return fileUrl;
     return `${API_BASE_URL.replace('/api', '')}${fileUrl}`;
   }
+
+ 
+
 };
+
+
 
 export default api;
