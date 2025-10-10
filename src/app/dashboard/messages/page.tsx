@@ -45,6 +45,9 @@ import { chatApi, ChatThreadData, ChatMessageData, AvailableClientData } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
+import { useCallback } from 'react';
+
 
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -113,23 +116,21 @@ export default function MessagesPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadThreads = async () => {
+  const loadThreads = useCallback(async () => {
     try {
       if (!isLoadingThreads) {
-        // Silent refresh - preserve selection
         const data = await chatApi.getThreads();
         setThreads(data);
       } else {
         setError('');
         const data = await chatApi.getThreads();
         setThreads(data);
-        
-        // Auto-select first thread if available and nothing is selected
+
         if (data.length > 0 && !selectedThreadId) {
           setSelectedThreadId(data[0].id);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load threads:', err);
       if (isLoadingThreads) {
         setError('Failed to load conversations');
@@ -137,7 +138,7 @@ export default function MessagesPage() {
     } finally {
       setIsLoadingThreads(false);
     }
-  };
+  }, [isLoadingThreads, selectedThreadId]);
 
   const loadMessages = async (threadId: number, silent: boolean = false) => {
     try {
@@ -146,7 +147,7 @@ export default function MessagesPage() {
       }
       const data = await chatApi.getMessages(threadId, 1, 100);
       setMessages(data.messages);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load messages:', err);
       if (!silent) {
         setError('Failed to load messages');
@@ -156,12 +157,12 @@ export default function MessagesPage() {
     }
   };
 
-  const markThreadAsRead = async (threadId: number) => {
+  const markThreadAsRead = useCallback(async (threadId: number) => {
     try {
       const unreadMessages = messages
         .filter(msg => !msg.read_at && msg.user_id !== user?.user_id)
         .map(msg => msg.id);
-      
+
       if (unreadMessages.length > 0) {
         await chatApi.markMessagesRead(threadId, unreadMessages);
         loadThreads();
@@ -169,7 +170,7 @@ export default function MessagesPage() {
     } catch (err) {
       console.error('Failed to mark messages as read:', err);
     }
-  };
+  }, [messages, user?.user_id, loadThreads]);
 
   const handleSendMessage = async () => {
     if (!selectedThreadId || !messageInput.trim()) return;
@@ -189,12 +190,11 @@ export default function MessagesPage() {
           ? { 
               ...thread, 
               last_message: messageTrimmed,
-              last_message_text: messageTrimmed,
               last_message_at: new Date().toISOString() 
             }
           : thread
       ));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to send message:', err);
       setError('Failed to send message. Please try again.');
     } finally {
@@ -221,7 +221,7 @@ export default function MessagesPage() {
       const uploadResult = await chatApi.uploadFile(file);
       
       // Create message body based on file type
-      let messageBody = `📎 ${uploadResult.file_name}`;
+      const  messageBody = `📎 ${uploadResult.file_name}`;
       
       // Send message with file URL
       const newMessage = await chatApi.sendMessage(
@@ -238,12 +238,11 @@ export default function MessagesPage() {
           ? { 
               ...thread, 
               last_message: messageBody,
-              last_message_text: messageBody,
               last_message_at: new Date().toISOString() 
             }
           : thread
       ));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to upload file:', err);
       setError('Failed to upload file. Please try again.');
     } finally {
@@ -254,19 +253,19 @@ export default function MessagesPage() {
     }
   };
 
-  const loadAvailableClients = async () => {
+  const loadAvailableClients = useCallback(async () => {
     try {
       setIsLoadingClients(true);
       setCreateThreadError('');
       const data = await chatApi.getAvailableClients(clientSearchQuery || undefined);
       setAvailableClients(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load available clients:', err);
       setCreateThreadError('Failed to load available clients');
     } finally {
       setIsLoadingClients(false);
     }
-  };
+  }, [clientSearchQuery]);
 
   const handleStartConversation = async (clientId: number) => {
     try {
@@ -284,13 +283,9 @@ export default function MessagesPage() {
       // Close modal
       setIsNewConversationOpen(false);
       setClientSearchQuery('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create thread:', err);
-      if (err.response?.status === 400) {
-        setCreateThreadError('Conversation already exists with this client');
-      } else {
-        setCreateThreadError('Failed to start conversation');
-      }
+      setCreateThreadError('Failed to start conversation');
     } finally {
       setIsCreatingThread(false);
     }
@@ -334,17 +329,6 @@ export default function MessagesPage() {
   const isImageFile = (url: string): boolean => {
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
     return imageExtensions.some(ext => url.toLowerCase().endsWith(ext));
-  };
-
-  const getFileIcon = (contentType?: string) => {
-    if (!contentType) return '📄';
-    
-    if (contentType.startsWith('image/')) return '🖼️';
-    if (contentType.startsWith('audio/')) return '🎵';
-    if (contentType.includes('pdf')) return '📕';
-    if (contentType.includes('word') || contentType.includes('document')) return '📝';
-    
-    return '📄';
   };
 
   const filteredThreads = threads.filter(thread => {
@@ -444,7 +428,7 @@ export default function MessagesPage() {
                     const isSelected = selectedThreadId === thread.id;
                     
                     // Get last message - check both fields for compatibility
-                    const lastMessage = thread.last_message_text || thread.last_message || 'No messages yet';
+                    const lastMessage = thread.last_message || 'No messages yet';
 
                     return (
                       <button
@@ -578,16 +562,14 @@ export default function MessagesPage() {
                                         rel="noopener noreferrer"
                                         className="block"
                                       >
-                                        <img
+                                        <Image
                                           src={chatApi.getFileUrl(message.image_url!)}
                                           alt="Attachment"
+                                          width={500}
+                                          height={500}
                                           className="rounded-lg max-w-full h-auto max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                          onError={(e) => {
-                                            // Fallback if image fails to load
-                                            const target = e.target as HTMLImageElement;
-                                            target.style.display = 'none';
-                                          }}
                                         />
+
                                       </a>
                                     ) : (
                                       // File attachment (non-image)

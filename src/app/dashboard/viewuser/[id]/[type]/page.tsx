@@ -18,7 +18,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Loader2, 
@@ -92,7 +91,7 @@ function ViewUserPageInner() {
       const userData = await userApi.getById(userId!);
       
       setUser(userData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load user:', err);
       setError('Failed to load user data');
     } finally {

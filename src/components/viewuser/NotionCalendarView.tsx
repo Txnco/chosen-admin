@@ -29,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { eventApi, EventData, EventCreate, EventUpdate, RepeatType } from '@/lib/api';
+import { eventApi, EventData, EventCreate, RepeatType } from '@/lib/api';
 import { 
   format, 
   startOfWeek, 
@@ -41,7 +41,6 @@ import {
   isSameDay,
   isToday,
   setHours,
-  setMinutes,
   getHours,
   getMinutes,
   startOfDay,
@@ -118,7 +117,7 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
       );
 
       setEvents(fetchedEvents);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load events:', err);
       setError('Failed to load events');
     } finally {
@@ -430,9 +429,9 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
       
       closeSidebar();
       loadEvents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to save event:', err);
-      setError(err.response?.data?.detail || 'Failed to save event');
+      setError('Failed to save event');
     } finally {
       setIsSubmitting(false);
     }
@@ -448,9 +447,9 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
       setIsDeleteModalOpen(false);
       closeSidebar();
       loadEvents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to delete event:', err);
-      setError(err.response?.data?.detail || 'Failed to delete event');
+      setError('Failed to delete event');
     } finally {
       setIsDeletingEvent(false);
     }

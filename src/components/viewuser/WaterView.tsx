@@ -54,7 +54,7 @@ export default function WaterView({ userId }: WaterViewProps) {
         order: 'desc'
       });
       setIntake(intakeData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load water data:', err);
       setError('Failed to load water tracking data');
     } finally {
@@ -104,7 +104,7 @@ export default function WaterView({ userId }: WaterViewProps) {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Today's Intake</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Today&apos;s Intake</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">

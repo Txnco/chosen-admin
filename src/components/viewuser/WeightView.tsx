@@ -30,7 +30,7 @@ export function WeightView({ userId }: WeightViewProps) {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setWeights(sortedData);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load weight data:', err);
       setError('Failed to load weight tracking data');
     } finally {

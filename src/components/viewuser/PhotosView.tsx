@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { progressPhotoApi, ProgressPhotoData } from '@/lib/api';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
@@ -66,7 +66,7 @@ export function PhotosView({ userId }: PhotosViewProps) {
           <CardDescription>Track visual progress over time</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all" onValueChange={(v) => setSelectedAngle(v as any)}>
+          <Tabs defaultValue="all" onValueChange={(v) => setSelectedAngle(v as 'front' | 'side' | 'back' | 'all')}>
             <TabsList className="mb-4">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="front">Front</TabsTrigger>

@@ -102,6 +102,7 @@ export interface QuestionnaireData {
   evening_routine?: string;
   created_at?: string;
   updated_at?: string;
+  birthday?: string;
 }
 
 // NEW: Weight Tracking Types
@@ -175,6 +176,16 @@ export interface WaterTrackingData {
 
 export interface WaterStatsDaily {
   date: string;
+  total_intake_ml: number;
+  goal_ml: number;
+  progress_percentage: number;
+  goal_reached: boolean;
+  entry_count: number;
+  remaining_ml: number;
+}
+
+export interface WaterStatsWeekly {
+  week_start: string;
   total_intake_ml: number;
   goal_ml: number;
   progress_percentage: number;
@@ -454,7 +465,7 @@ export const dayRatingApi = {
 // NEW: Progress Photos API
 export const progressPhotoApi = {
   getAll: async (userId?: number, angle?: string): Promise<ProgressPhotoData[]> => {
-    const params: any = {};
+    const params: { user_id?: number; angle?: string } = {};
     if (userId) params.user_id = userId;
     if (angle) params.angle = angle;
     const response = await api.get('/tracking/progress-photos', { params });
@@ -667,14 +678,14 @@ export const waterApi = {
     return response.data;
   },
 
-  getWeeklyStats: async (weekStart?: string): Promise<any> => {
+  getWeeklyStats: async (weekStart?: string): Promise<WaterStatsWeekly[]> => {
     const params = weekStart ? { week_start: weekStart } : {};
     const response = await api.get('/water/stats/weekly', { params });
     return response.data;
   },
 
-  getMonthlyStats: async (year?: number, month?: number): Promise<any> => {
-    const params: any = {};
+  getMonthlyStats: async (year?: number, month?: number): Promise<WaterStatsDaily[]> => {
+    const params: { year?: number; month?: number } = {};
     if (year) params.year = year;
     if (month) params.month = month;
     const response = await api.get('/water/stats/monthly', { params });
