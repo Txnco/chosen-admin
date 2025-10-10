@@ -1,7 +1,7 @@
 'use client';
-
+// src\app\dashboard\viewuser\[id]\[type]\page.tsx
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
@@ -18,16 +18,24 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { 
+  Loader2, 
+  AlertCircle, 
+  Droplets,
+  Scale,
+  Star,
+  Camera,
+  ClipboardList,
+  Calendar as CalendarIcon
+} from 'lucide-react';
 import { userApi, UserData } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { ClientSelector } from '@/components/ClientSelector';
 
-// Import view components (we'll create these next)
+// Import view components
 import WaterView from '@/components/viewuser/WaterView';
 import WeightView from '@/components/viewuser/WeightView';
 import RatingView from '@/components/viewuser/RatingView';
@@ -35,23 +43,22 @@ import PhotosView from '@/components/viewuser/PhotosView';
 import QuestionnaireView from '@/components/viewuser/QuestionnaireView';
 import CalendarView from '@/components/viewuser/CalendarView';
 
-type ViewType = 'water' | 'weight' | 'rating' | 'photos' | 'questionnaire'  | 'calendar';
+type ViewType = 'water' | 'weight' | 'rating' | 'photos' | 'questionnaire' | 'calendar';
 
 const validTypes: ViewType[] = ['water', 'weight', 'rating', 'photos', 'questionnaire', 'calendar'];
 
-const tabConfig: Record<ViewType, { label: string; icon: string }> = {
-  water: { label: 'Water Tracking', icon: '💧' },
-  weight: { label: 'Weight Tracking', icon: '⚖️' },
-  rating: { label: 'Daily Ratings', icon: '⭐' },
-  photos: { label: 'Progress Photos', icon: '📸' },
-  questionnaire: { label: 'Questionnaire', icon: '📋' },
-  calendar: { label: 'Calendar', icon: '📆' },
+const tabConfig: Record<ViewType, { label: string; shortLabel: string; icon: React.ElementType }> = {
+  water: { label: 'Water Tracking', shortLabel: 'Water', icon: Droplets },
+  weight: { label: 'Weight Tracking', shortLabel: 'Weight', icon: Scale },
+  rating: { label: 'Daily Ratings', shortLabel: 'Ratings', icon: Star },
+  photos: { label: 'Progress Photos', shortLabel: 'Photos', icon: Camera },
+  questionnaire: { label: 'Questionnaire', shortLabel: 'Form', icon: ClipboardList },
+  calendar: { label: 'Calendar', shortLabel: 'Calendar', icon: CalendarIcon },
 };
 
 function ViewUserPageInner() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   
   const userId = params.id ? parseInt(params.id as string) : null;
   const viewType = (params.type as ViewType) || 'water';
@@ -93,17 +100,6 @@ function ViewUserPageInner() {
     }
   };
 
-  const getUserInitials = (user: UserData) => {
-    const first = user.first_name?.charAt(0) || '';
-    const last = user.last_name?.charAt(0) || '';
-    return (first + last).toUpperCase() || 'U';
-  };
-
-  const getProfileImageUrl = (profilePicture?: string) => {
-    if (!profilePicture) return null;
-    return `https://admin.chosen-international.com/public/uploads/profile/${profilePicture}`;
-  };
-
   const renderView = () => {
     if (!user) return null;
 
@@ -143,35 +139,29 @@ function ViewUserPageInner() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <div className="flex flex-col items-center justify-center h-screen gap-4">
+          <div className="flex flex-col items-center justify-center h-screen gap-4 p-4">
             <Alert variant="destructive" className="max-w-md">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error || 'User not found'}</AlertDescription>
             </Alert>
-            <Button onClick={() => router.push('/dashboard/users')} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Users
-            </Button>
           </div>
         </SidebarInset>
       </SidebarProvider>
     );
   }
 
-  const profileImageUrl = getProfileImageUrl(user.profile_picture);
-
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
         {/* Header */}
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white sticky top-0 z-40">
-          <div className="flex items-center gap-2 px-4 w-full">
+        <header className="flex h-14 md:h-16 shrink-0 items-center gap-2 border-b bg-white sticky top-0 z-40">
+          <div className="flex items-center gap-2 px-3 md:px-4 w-full">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             
-            {/* Breadcrumb */}
-            <Breadcrumb className="flex-1">
+            {/* Breadcrumb - Hidden on mobile */}
+            <Breadcrumb className="hidden lg:flex flex-1">
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
@@ -191,45 +181,75 @@ function ViewUserPageInner() {
               </BreadcrumbList>
             </Breadcrumb>
 
-            {/* User Avatar + Name (Sticky) */}
-            <div className="flex items-center gap-3 ml-auto">
-              <Avatar className="h-8 w-8 border-2 border-gray-200">
-                {profileImageUrl ? (
-                  <AvatarImage src={profileImageUrl} alt={`${user.first_name} ${user.last_name}`} />
-                ) : null}
-                <AvatarFallback className="bg-black text-white text-xs font-bold">
-                  {getUserInitials(user)}
-                </AvatarFallback>
-              </Avatar>
+   
+
+            {/* Client Selector */}
+            <div className="flex items-center md:gap-3 ml-auto">
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-black">
-                  {user.first_name} {user.last_name}
-                </p>
-                <p className="text-xs text-gray-500">{user.email}</p>
+                <ClientSelector currentUserId={userId} />
               </div>
-              <Badge className="bg-blue-100 text-blue-800">Client</Badge>
+              
+              {/* Mobile Client Selector - Compact version */}
+              <div className="sm:hidden">
+                <ClientSelector currentUserId={userId} />
+              </div>
             </div>
           </div>
         </header>
 
         {/* Navigation Tabs */}
-        <div className="border-b bg-white sticky top-16 z-30">
-          <div className="flex gap-1 px-4 overflow-x-auto">
+        <div className="border-b bg-white sticky top-14 md:top-16 z-30">
+          {/* Desktop Tabs */}
+          <div className="hidden md:flex gap-1 px-4 overflow-x-auto scrollbar-hide">
             {validTypes.map((type) => {
               const isActive = viewType === type;
+              const Icon = tabConfig[type].icon;
+              
               return (
                 <Link
                   key={type}
                   href={`/dashboard/viewuser/${userId}/${type}`}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+                    'flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap',
                     isActive
-                      ? 'border-black text-black'
-                      : 'border-transparent text-gray-500 hover:text-black hover:border-gray-300'
+                      ? 'border-black text-black bg-gray-50'
+                      : 'border-transparent text-gray-600 hover:text-black hover:border-gray-300 hover:bg-gray-50/50'
                   )}
                 >
-                  <span>{tabConfig[type].icon}</span>
+                  <Icon className={cn(
+                    "h-4 w-4",
+                    isActive ? "text-black" : "text-gray-500"
+                  )} />
                   <span>{tabConfig[type].label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Mobile Tabs - Compact with icons and short labels */}
+          <div className="flex md:hidden justify-around px-2 overflow-x-auto scrollbar-hide">
+            {validTypes.map((type) => {
+              const isActive = viewType === type;
+              const Icon = tabConfig[type].icon;
+              
+              return (
+                <Link
+                  key={type}
+                  href={`/dashboard/viewuser/${userId}/${type}`}
+                  className={cn(
+                    'flex flex-col items-center gap-1 px-3 py-2.5 text-xs font-medium border-b-2 transition-all min-w-[60px]',
+                    isActive
+                      ? 'border-black text-black bg-gray-50'
+                      : 'border-transparent text-gray-600 active:text-black active:border-gray-300'
+                  )}
+                >
+                  <Icon className={cn(
+                    "h-5 w-5",
+                    isActive ? "text-black" : "text-gray-500"
+                  )} />
+                  <span className="text-[10px] leading-tight text-center">
+                    {tabConfig[type].shortLabel}
+                  </span>
                 </Link>
               );
             })}
@@ -237,7 +257,7 @@ function ViewUserPageInner() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-4 md:p-6">
+        <div className="flex-1 p-3 md:p-4 lg:p-6">
           {renderView()}
         </div>
       </SidebarInset>

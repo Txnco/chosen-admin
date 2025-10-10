@@ -3,6 +3,15 @@ import axios, { AxiosError } from 'axios';
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://admin.chosen-international.com/api';
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
+
+/**
+ * Get timezone offset in minutes
+ * Returns negative value for timezones ahead of UTC (e.g., -120 for UTC+2)
+ */
+const getTimezoneOffset = (): number => {
+  return new Date().getTimezoneOffset();
+};
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,6 +23,8 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Add timezone offset header
+  config.headers['X-Timezone-Offset'] = getTimezoneOffset().toString();
   return config;
 });
 
@@ -213,15 +224,16 @@ export interface EventData {
   user_id: number;
   title: string;
   description?: string;
-  start_time: string; // ISO datetime string
-  end_time: string; // ISO datetime string
+  start_time: string;
+  end_time: string;
   all_day: boolean;
   repeat_type: RepeatType;
-  repeat_until?: string; // ISO datetime string
+  repeat_until?: string;
   created_by: number;
   created_at: string;
   updated_at: string;
-  is_repeat_instance?: boolean; // For generated repeat instances
+  is_repeat_instance?: boolean;  // Add this
+  original_start?: string;  // Add this
 }
 
 export interface EventWithUser extends EventData {

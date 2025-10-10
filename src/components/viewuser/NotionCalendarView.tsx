@@ -1,5 +1,5 @@
 'use client';
-
+// components/viewuser/NotionCalendarView.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,14 @@ import {
   X,
   AlertCircle,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { eventApi, EventData, EventCreate, EventUpdate, RepeatType } from '@/lib/api';
 import { 
   format, 
@@ -66,6 +74,14 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
   const [dragCurrent, setDragCurrent] = useState<{ dayIndex: number; minutes: number } | null>(null);
   const [draggingEvent, setDraggingEvent] = useState<{ event: EventData; initialDayIndex: number; offsetMinutes: number } | null>(null);
   const [resizingEvent, setResizingEvent] = useState<{ event: EventData; edge: 'top' | 'bottom' } | null>(null);
+
+  const [isDraggingEvent, setIsDraggingEvent] = useState(false);
+  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
+  const [isResizingActive, setIsResizingActive] = useState(false);
+  const [resizeMouseDownPos, setResizeMouseDownPos] = useState<{ x: number; y: number } | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   
   const [formData, setFormData] = useState<EventCreate>({
     user_id: userId,
@@ -85,15 +101,6 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
     loadEvents();
   }, [currentWeekStart, userId]);
 
-  const convertUTCToLocal = (utcTimeString: string): string => {
-    const utcDate = new Date(utcTimeString);
-    return utcDate.toISOString();
-  };
-
-  const convertLocalToUTC = (localTimeString: string): string => {
-    const localDate = new Date(localTimeString);
-    return localDate.toISOString();
-  };
 
   const loadEvents = async () => {
     try {
@@ -110,12 +117,6 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
         true
       );
 
-      const localizedEvents = fetchedEvents.map(event => ({
-        ...event,
-        start_time: convertUTCToLocal(event.start_time),
-        end_time: convertUTCToLocal(event.end_time),
-      }));
-      
       setEvents(fetchedEvents);
     } catch (err: any) {
       console.error('Failed to load events:', err);
@@ -123,6 +124,19 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Add after imports, before the component
+  const formatLocalDateTimeForAPI = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    // Return ISO format without 'Z' suffix - represents local time
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   };
 
   const minutesToPixels = (minutes: number) => {
@@ -171,7 +185,8 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
 
   const handleTimeSlotMouseDown = (dayIndex: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
-    const columnElement = e.currentTarget;
+    const columnElement = e.currentTarget.closest('.day-column') as HTMLElement;
+    if (!columnElement) return;
     const minutes = getMinutesFromClick(e, columnElement);
     const snappedMinutes = Math.floor(minutes / MINUTES_PER_SLOT) * MINUTES_PER_SLOT;
     setDragStart({ dayIndex, minutes: snappedMinutes });
@@ -200,6 +215,9 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
 
   const handleEventMouseDown = (event: EventData, e: React.MouseEvent) => {
     e.stopPropagation();
+
+    setMouseDownPos({ x: e.clientX, y: e.clientY });
+    setIsDraggingEvent(false);
     
     const dayIndex = weekDays.findIndex(day => isSameDay(parseISO(event.start_time), day));
     if (dayIndex === -1) return;
@@ -221,9 +239,21 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
     });
   };
 
+  const checkForDragMovement = (e: React.MouseEvent) => {
+    if (mouseDownPos && !isDraggingEvent) {
+      const distance = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      if (distance > 5) { // 5px threshold
+        setIsDraggingEvent(true);
+      }
+    }
+  };
+
   const handleEventDrag = (dayIndex: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (!draggingEvent) return;
     
+    checkForDragMovement(e);
+     if (!isDraggingEvent) return;
+
     const columnElement = e.currentTarget;
     const minutes = getMinutesFromClick(e, columnElement);
     const snappedMinutes = Math.floor(minutes / MINUTES_PER_SLOT) * MINUTES_PER_SLOT;
@@ -240,20 +270,39 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
     updateEventTimes(draggingEvent.event.id, newStart, newEnd);
   };
 
-  const handleEventDragEnd = () => {
+  const handleEventDragEnd = async () => {
     if (draggingEvent) {
-      saveEventUpdate(draggingEvent.event.id);
+      if (isDraggingEvent) {
+        // It was a drag - save the changes
+        await saveEventUpdate(draggingEvent.event.id);
+      } else {
+        // It was a click - open edit sidebar
+        openSidebarForEdit(draggingEvent.event);
+      }
     }
     setDraggingEvent(null);
+    setIsDraggingEvent(false);
+    setMouseDownPos(null);
   };
 
   const handleResizeMouseDown = (event: EventData, edge: 'top' | 'bottom', e: React.MouseEvent) => {
     e.stopPropagation();
     setResizingEvent({ event, edge });
+    setIsResizingActive(false);
+    setResizeMouseDownPos({ x: e.clientX, y: e.clientY });
   };
 
   const handleResizeMove = (dayIndex: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (!resizingEvent) return;
+
+    if (resizeMouseDownPos && !isResizingActive) {
+      const distance = Math.hypot(e.clientX - resizeMouseDownPos.x, e.clientY - resizeMouseDownPos.y);
+      if (distance > 5) {
+        setIsResizingActive(true);
+      }
+    }
+    
+    if (!isResizingActive) return;
     
     const columnElement = e.currentTarget;
     const minutes = getMinutesFromClick(e, columnElement);
@@ -276,17 +325,26 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
     }
   };
 
-  const handleResizeEnd = () => {
+  const handleResizeEnd = async () => {
     if (resizingEvent) {
-      saveEventUpdate(resizingEvent.event.id);
+      // Only save if we actually resized (moved more than threshold)
+      if (isResizingActive) {
+        await saveEventUpdate(resizingEvent.event.id);
+      }
     }
     setResizingEvent(null);
+    setIsResizingActive(false);
+    setResizeMouseDownPos(null);
   };
 
   const updateEventTimes = (eventId: number, newStart: Date, newEnd: Date) => {
     setEvents(prev => prev.map(e => 
       e.id === eventId 
-        ? { ...e, start_time: newStart.toISOString(), end_time: newEnd.toISOString() }
+        ? { 
+            ...e, 
+            start_time: formatLocalDateTimeForAPI(newStart), 
+            end_time: formatLocalDateTimeForAPI(newEnd) 
+          }
         : e
     ));
   };
@@ -302,7 +360,7 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
       });
     } catch (err) {
       console.error('Failed to update event:', err);
-      loadEvents();
+      await loadEvents();
     }
   };
 
@@ -312,8 +370,8 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
       user_id: userId,
       title: '',
       description: '',
-      start_time: startTime.toISOString(),
-      end_time: endTime.toISOString(),
+      start_time: formatLocalDateTimeForAPI(startTime),
+      end_time: formatLocalDateTimeForAPI(endTime),
       all_day: false,
       repeat_type: 'none',
       repeat_until: '',
@@ -381,14 +439,20 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
   };
 
   const handleDelete = async () => {
-    if (!selectedEvent || !confirm('Delete this event?')) return;
+    if (!selectedEvent) return;
     
     try {
+      setIsDeletingEvent(true);
+      setError('');
       await eventApi.delete(selectedEvent.id);
+      setIsDeleteModalOpen(false);
       closeSidebar();
       loadEvents();
     } catch (err: any) {
-      setError('Failed to delete event');
+      console.error('Failed to delete event:', err);
+      setError(err.response?.data?.detail || 'Failed to delete event');
+    } finally {
+      setIsDeletingEvent(false);
     }
   };
 
@@ -526,47 +590,61 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
                     .map((event, eventIdx) => {
                       const { top, height } = getEventPosition(event);
                       const isDragging = draggingEvent?.event.id === event.id;
+                      const isRepeatInstance = event.is_repeat_instance || false;
                       
                       return (
                         <div
-                          key={`${event.id}-${eventIdx}`}
+                          key={`${event.id}-${event.start_time}-${eventIdx}`}  // Better key for repeat instances
                           className={cn(
-                            'absolute left-1 right-1 rounded-lg p-2 cursor-move hover:shadow-lg transition-shadow z-10 group',
+                            'absolute left-1 right-1 rounded-lg p-2 cursor-pointer hover:shadow-lg transition-shadow z-10 group',
                             event.all_day 
                               ? 'bg-purple-100 border-l-4 border-purple-600' 
-                              : 'bg-blue-100 border-l-4 border-blue-600',
-                            isDragging && 'opacity-70 shadow-xl scale-105'
+                              : isRepeatInstance
+                                ? 'bg-green-100 border-l-4 border-green-600'  // Different color for instances
+                                : 'bg-blue-100 border-l-4 border-blue-600',
+                            isDragging && 'opacity-70 shadow-xl scale-105',
+                            isRepeatInstance && 'border-dashed'  // Dashed border for instances
                           )}
                           style={{
                             top: `${top}px`,
                             height: `${Math.max(height, 30)}px`,
                           }}
-                          onMouseDown={(e) => handleEventMouseDown(event, e)}
-                          onClick={(e) => {
-                            if (!draggingEvent && !resizingEvent) {
-                              e.stopPropagation();
+                          onMouseDown={(e) => {
+                            // Don't allow dragging repeat instances, only the original
+                            if (!isRepeatInstance) {
+                              handleEventMouseDown(event, e);
+                            } else {
+                              // Click to view only
                               openSidebarForEdit(event);
                             }
                           }}
                         >
-                          <div
-                            className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 bg-gray-400/50"
-                            onMouseDown={(e) => handleResizeMouseDown(event, 'top', e)}
-                          />
-                          <div
-                            className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 bg-gray-400/50"
-                            onMouseDown={(e) => handleResizeMouseDown(event, 'bottom', e)}
-                          />
+                          {/* Don't show resize handles for repeat instances */}
+                          {!isRepeatInstance && (
+                            <>
+                              <div
+                                className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 bg-gray-400/50"
+                                onMouseDown={(e) => handleResizeMouseDown(event, 'top', e)}
+                              />
+                              <div
+                                className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 bg-gray-400/50"
+                                onMouseDown={(e) => handleResizeMouseDown(event, 'bottom', e)}
+                              />
+                            </>
+                          )}
                           
-                          <div className="text-sm font-semibold text-black truncate pointer-events-none">
+                          <div className="text-sm font-semibold text-black truncate pointer-events-none flex items-center gap-1">
                             {event.title}
+                            {isRepeatInstance && (
+                              <Repeat className="w-3 h-3 text-green-600 flex-shrink-0" />
+                            )}
                           </div>
                           {height > 40 && event.description && (
                             <div className="text-xs text-gray-600 truncate mt-1 pointer-events-none">
                               {event.description}
                             </div>
                           )}
-                          {event.repeat_type !== 'none' && (
+                          {event.repeat_type !== 'none' && !isRepeatInstance && (
                             <Repeat className="w-3 h-3 text-gray-500 absolute top-1 right-1 pointer-events-none" />
                           )}
                         </div>
@@ -602,6 +680,12 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
               <h2 className="text-lg font-semibold text-black">
                 {selectedEvent ? 'Edit Event' : 'New Event'}
               </h2>
+              {selectedEvent?.is_repeat_instance && (
+                  <p className="text-sm text-orange-600 flex items-center gap-1 mt-1">
+                    <Repeat className="w-3 h-3" />
+                    This is a repeated instance
+                  </p>
+                )}
               <Button variant="ghost" size="icon" onClick={closeSidebar}>
                 <X className="w-5 h-5" />
               </Button>
@@ -664,7 +748,7 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[201]">
                     <SelectItem value="none">Does not repeat</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -730,9 +814,9 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
 
               {selectedEvent && (
                 <Button
-                  variant="destructive"
-                  onClick={handleDelete}
-                  className="w-full"
+                  variant="outline"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                   disabled={isSubmitting}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -749,6 +833,102 @@ export default function NotionCalendarView({ userId, isAdmin = false }: NotionCa
           </div>
         </>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="sm:max-w-md z-[200]">
+          
+          
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="w-5 h-5" />
+              Delete Event
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this event? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEvent && (
+            <div className="py-4">
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Event</div>
+                  <div className="text-base font-semibold text-black mt-1">
+                    {selectedEvent.title}
+                  </div>
+                </div>
+                
+                {selectedEvent.description && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-500">Description</div>
+                    <div className="text-sm text-gray-700 mt-1">
+                      {selectedEvent.description}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Time</div>
+                  <div className="text-sm text-gray-700 mt-1">
+                    {format(parseISO(selectedEvent.start_time), 'MMM dd, yyyy HH:mm')}
+                    {' → '}
+                    {format(parseISO(selectedEvent.end_time), 'HH:mm')}
+                  </div>
+                </div>
+                
+                {selectedEvent.repeat_type !== 'none' && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                    <Repeat className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-600">
+                      This is a recurring event
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {error && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setError('');
+              }}
+              disabled={isDeletingEvent}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeletingEvent}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingEvent ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Event
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
