@@ -1,8 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://admin.chosen-international.com/api';
-// const API_BASE_URL = 'http://127.0.0.1:8000';
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const UPLOADS_URL = process.env.NEXT_PUBLIC_UPLOADS_PATH;
 
 /**
  * Get timezone offset in minutes
@@ -741,15 +740,17 @@ export const chatApi = {
     return response.data;
   },
 
-  uploadFile: async (file: File): Promise<{
-    file_url: string;
+  uploadFile: async (file: File, threadId: number): Promise<{
     file_name: string;
+    file_url: string;
+    original_name: string;
     file_size: number;
     content_type: string;
   }> => {
     const formData = new FormData();
     formData.append('file', file);
-
+    formData.append('thread_id', threadId.toString());  // Add thread_id to form data
+    
     const response = await api.post('/chat/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -774,11 +775,12 @@ export const chatApi = {
     return response.data;
   },
 
-  getFileUrl: (fileUrl: string): string => {
-    if (!fileUrl) return '';
-    if (fileUrl.startsWith('http')) return fileUrl;
-    return `${API_BASE_URL.replace('/api', '')}${fileUrl}`;
-  }
+  getFileUrl: (filename: string): string => {
+    if (filename.startsWith('/uploads/')) {
+      return `${UPLOADS_URL}${filename}`;
+    }
+    return `${UPLOADS_URL}/uploads/chat/${filename}`;
+  },
 
  
 

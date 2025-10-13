@@ -46,7 +46,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const getProfileImageUrl = () => {
     if (!user || isLoading || !user.profile_picture) return undefined; // changed from null
-    return `https://admin.chosen-international.com/public/uploads/profile/${user.profile_picture}`;
+    return process.env.NEXT_PUBLIC_UPLOADS_PATH + `/uploads/profile/${user.profile_picture}`;
   };
 
   const getUserRole = () => {

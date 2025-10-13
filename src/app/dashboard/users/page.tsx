@@ -762,173 +762,182 @@ export default function UsersPage() {
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-black mb-2">User Management</h2>
-            <p className="text-gray-600">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
+          {/* Left side - Title and description */}
+          <div className="flex-1">
+            <h2 className="text-2xl sm:text-3xl font-bold text-black mb-2">User Management</h2>
+            <p className="text-sm sm:text-base text-gray-600">
               Manage and monitor all registered users in the system.
             </p>
           </div>
 
-          
-          <ClientSelector/>
-          
-          {/* Add User Dialog */}
-          <Dialog open={isAddUserOpen} onOpenChange={(open) => {
-            setIsAddUserOpen(open);
-            if (!open) resetCreateForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-black text-white hover:bg-gray-900">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New User</DialogTitle>
-                <DialogDescription>
-                  Create a new user account. A password will be generated automatically if not provided.
-                </DialogDescription>
-              </DialogHeader>
+          {/* Right side - Actions */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:flex-shrink-0">
+            <ClientSelector />
+            
+            {/* Add User Dialog */}
+            <Dialog open={isAddUserOpen} onOpenChange={(open) => {
+              setIsAddUserOpen(open);
+              if (!open) resetCreateForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button className="bg-black text-white hover:bg-gray-900 whitespace-nowrap h-10">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add User
+                </Button>
+              </DialogTrigger>
               
-              <div className="space-y-4">
-                {createError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{createError}</AlertDescription>
-                  </Alert>
-                )}
+              <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add New User</DialogTitle>
+                  <DialogDescription>
+                    Create a new user account. A password will be generated automatically if not provided.
+                  </DialogDescription>
+                </DialogHeader>
                 
-                {createSuccess && (
-                  <Alert className="border-green-200 bg-green-50">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800">
-                      {createSuccess}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Profile Picture Upload */}
-                <div className="space-y-2">
-                  <Label>Profile Picture (optional)</Label>
-                  <div className="space-y-3">
-                        {newUserPreviewUrl && (
-                          <div className="flex items-center gap-3">
-                            <Image
-                              src={newUserPreviewUrl}
-                              alt="Profile preview"
-                              width={64}
-                              height={64}
-                              unoptimized
-                              className="w-16 h-16 rounded-full object-cover border"
-                            />
-                            <p className="text-sm text-gray-600">
-                              {newUserProfilePicture?.name}
-                            </p>
-                          </div>
-                        )}
-
-                        <input
-                          ref={createFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleCreateFileSelect}
-                          className="hidden"
-                          disabled={isCreatingUser}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => createFileInputRef.current?.click()}
-                          disabled={isCreatingUser}
-                          className="w-full"
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          {newUserPreviewUrl ? 'Choose different image' : 'Choose Image'}
-                        </Button>
-                        <p className="text-xs text-gray-500 text-center">
-                          PNG, JPG, JPEG up to 5MB
-                        </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="first_name">First Name *</Label>
-                    <Input
-                      id="first_name"
-                      value={newUser.first_name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, first_name: e.target.value }))}
-                      placeholder="John"
-                      disabled={isCreatingUser}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="last_name">Last Name *</Label>
-                    <Input
-                      id="last_name"
-                      value={newUser.last_name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, last_name: e.target.value }))}
-                      placeholder="Doe"
-                      disabled={isCreatingUser}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="john.doe@example.com"
-                    disabled={isCreatingUser}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password (optional)</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="Leave empty to auto-generate"
-                    disabled={isCreatingUser}
-                  />
-                  <p className="text-xs text-gray-500">
-                    If left empty, a secure password will be generated automatically
-                  </p>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAddUserOpen(false)}
-                  disabled={isCreatingUser}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateUser}
-                  disabled={isCreatingUser}
-                  className="bg-black text-white hover:bg-gray-900"
-                >
-                  {isCreatingUser ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create User'
+                <div className="space-y-4">
+                  {createError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{createError}</AlertDescription>
+                    </Alert>
                   )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                  
+                  {createSuccess && (
+                    <Alert className="border-green-200 bg-green-50">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800">
+                        {createSuccess}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Profile Picture Upload */}
+                  <div className="space-y-2">
+                    <Label>Profile Picture (optional)</Label>
+                    <div className="space-y-3">
+                      {newUserPreviewUrl && (
+                        <div className="flex items-center gap-3">
+                          <Image
+                            src={newUserPreviewUrl}
+                            alt="Profile preview"
+                            width={64}
+                            height={64}
+                            unoptimized
+                            className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                          />
+                          <p className="text-sm text-gray-600 truncate flex-1">
+                            {newUserProfilePicture?.name}
+                          </p>
+                        </div>
+                      )}
+
+                      <input
+                        ref={createFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCreateFileSelect}
+                        className="hidden"
+                        disabled={isCreatingUser}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => createFileInputRef.current?.click()}
+                        disabled={isCreatingUser}
+                        className="w-full h-10"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {newUserPreviewUrl ? 'Choose different image' : 'Choose Image'}
+                      </Button>
+                      <p className="text-xs text-gray-500 text-center">
+                        PNG, JPG, JPEG up to 5MB
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="first_name">First Name *</Label>
+                      <Input
+                        id="first_name"
+                        value={newUser.first_name}
+                        onChange={(e) => setNewUser(prev => ({ ...prev, first_name: e.target.value }))}
+                        placeholder="John"
+                        disabled={isCreatingUser}
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="last_name">Last Name *</Label>
+                      <Input
+                        id="last_name"
+                        value={newUser.last_name}
+                        onChange={(e) => setNewUser(prev => ({ ...prev, last_name: e.target.value }))}
+                        placeholder="Doe"
+                        disabled={isCreatingUser}
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="john.doe@example.com"
+                      disabled={isCreatingUser}
+                      className="h-10"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password (optional)</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="Leave empty to auto-generate"
+                      disabled={isCreatingUser}
+                      className="h-10"
+                    />
+                    <p className="text-xs text-gray-500">
+                      If left empty, a secure password will be generated automatically
+                    </p>
+                  </div>
+                </div>
+
+                <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddUserOpen(false)}
+                    disabled={isCreatingUser}
+                    className="w-full sm:w-auto h-10"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateUser}
+                    disabled={isCreatingUser}
+                    className="bg-black text-white hover:bg-gray-900 w-full sm:w-auto h-10"
+                  >
+                    {isCreatingUser ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create User'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Edit User Dialog */}

@@ -1,7 +1,7 @@
 // src/app/dashboard/messages/page.tsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -30,6 +30,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { 
   MessageSquare, 
   Send, 
@@ -39,20 +45,20 @@ import {
   Search,
   X,
   Plus,
-  UserPlus
+  UserPlus,
+  ArrowLeft,
+  Menu
 } from 'lucide-react';
 import { chatApi, ChatThreadData, ChatMessageData, AvailableClientData } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { useCallback } from 'react';
-
 
 export default function MessagesPage() {
   const { user } = useAuth();
   const [threads, setThreads] = useState<ChatThreadData[]>([]);
-  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null); // Changed to store ID
+  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +67,9 @@ export default function MessagesPage() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [error, setError] = useState('');
+  
+  // Mobile state
+  const [isMobileThreadsOpen, setIsMobileThreadsOpen] = useState(false);
   
   // New conversation modal state
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
@@ -73,14 +82,14 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
 
-  // Derived value: get the actual selected thread object
   const selectedThread = threads.find(t => t.id === selectedThreadId) || null;
 
   useEffect(() => {
     loadThreads();
     
-    // Poll for new messages every 3 seconds
     pollIntervalRef.current = setInterval(() => {
       loadThreads();
       if (selectedThreadId) {
@@ -93,17 +102,21 @@ export default function MessagesPage() {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [selectedThreadId]); // Add selectedThreadId to dependencies
+  }, [selectedThreadId]);
 
   useEffect(() => {
     if (selectedThreadId) {
       loadMessages(selectedThreadId);
       markThreadAsRead(selectedThreadId);
+      // Close mobile menu when selecting a thread
+      setIsMobileThreadsOpen(false);
     }
-  }, [selectedThreadId]); // Use selectedThreadId instead of selectedThread?.id
+  }, [selectedThreadId]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (shouldAutoScrollRef.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -111,6 +124,21 @@ export default function MessagesPage() {
       loadAvailableClients();
     }
   }, [isNewConversationOpen, clientSearchQuery]);
+
+  const checkIfNearBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    
+    const threshold = 100;
+    const isNearBottom = 
+      container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    
+    return isNearBottom;
+  };
+
+  const handleScroll = () => {
+    shouldAutoScrollRef.current = checkIfNearBottom();
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -144,6 +172,7 @@ export default function MessagesPage() {
     try {
       if (!silent) {
         setIsLoadingMessages(true);
+        shouldAutoScrollRef.current = true;
       }
       const data = await chatApi.getMessages(threadId, 1, 100);
       setMessages(data.messages);
@@ -182,9 +211,12 @@ export default function MessagesPage() {
       const newMessage = await chatApi.sendMessage(selectedThreadId, messageInput.trim());
       
       setMessages(prev => [...prev, newMessage]);
+      shouldAutoScrollRef.current = true;
       const messageTrimmed = messageInput.trim();
       setMessageInput('');
       
+      shouldAutoScrollRef.current = true;
+
       setThreads(prev => prev.map(thread => 
         thread.id === selectedThreadId 
           ? { 
@@ -217,22 +249,18 @@ export default function MessagesPage() {
       setIsSendingMessage(true);
       setError('');
       
-      // Upload file first
-      const uploadResult = await chatApi.uploadFile(file);
+      const uploadResult = await chatApi.uploadFile(file, selectedThreadId);
+      const messageBody = `📎 ${uploadResult.file_name}`;
       
-      // Create message body based on file type
-      const  messageBody = `📎 ${uploadResult.file_name}`;
-      
-      // Send message with file URL
       const newMessage = await chatApi.sendMessage(
         selectedThreadId, 
         messageBody,
-        uploadResult.file_url  // Pass the file URL
+        uploadResult.file_name
       );
       
       setMessages(prev => [...prev, newMessage]);
+      shouldAutoScrollRef.current = true;
       
-      // Update thread with last message
       setThreads(prev => prev.map(thread => 
         thread.id === selectedThreadId 
           ? { 
@@ -274,13 +302,9 @@ export default function MessagesPage() {
       
       const newThread = await chatApi.createThread(clientId);
       
-      // Add new thread to list
       setThreads(prev => [newThread, ...prev]);
-      
-      // Select the new thread by ID
       setSelectedThreadId(newThread.id);
       
-      // Close modal
       setIsNewConversationOpen(false);
       setClientSearchQuery('');
     } catch (err: unknown) {
@@ -336,165 +360,202 @@ export default function MessagesPage() {
     return clientName?.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
+  // Threads list component for reuse
+  const ThreadsList = () => (
+    <div className="flex flex-col h-full">
+      {/* Search Header */}
+      <div className="p-3 md:p-4 bg-white border-b space-y-3 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-10 text-sm"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          
+          {user?.role_id === 1 && (
+            <Button
+              onClick={() => setIsNewConversationOpen(true)}
+              className="bg-black text-white hover:bg-gray-900 h-10 w-10 p-0 flex-shrink-0"
+              title="Start new conversation"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Threads List */}
+      <div className="flex-1 overflow-y-auto">
+        {isLoadingThreads ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          </div>
+        ) : filteredThreads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-gray-500 p-4">
+            <MessageSquare className="h-8 w-8 mb-2 text-gray-300" />
+            <p className="text-sm text-center">
+              {searchQuery ? 'No conversations found' : 'No conversations yet'}
+            </p>
+            {user?.role_id === 1 && !searchQuery && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsNewConversationOpen(true)}
+                className="mt-3"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Start conversation
+              </Button>
+            )}
+          </div>
+        ) : (
+          filteredThreads.map((thread) => {
+            const isTrainer = user?.role_id === 1;
+            const otherPersonName = isTrainer ? thread.client_name : thread.trainer_name;
+            const isSelected = selectedThreadId === thread.id;
+            const lastMessage = thread.last_message || 'No messages yet';
+
+            return (
+              <button
+                key={thread.id}
+                onClick={() => setSelectedThreadId(thread.id)}
+                className={cn(
+                  "w-full p-3 md:p-4 flex items-start gap-3 hover:bg-white transition-colors border-b text-left",
+                  isSelected && "bg-white border-l-4 border-l-black"
+                )}
+              >
+                <Avatar className="h-10 w-10 md:h-12 md:w-12 flex-shrink-0">
+                  <AvatarFallback className="bg-black text-white font-semibold text-xs md:text-sm">
+                    {getUserInitials(otherPersonName || '')}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between mb-1">
+                    <h3 className="font-semibold text-sm md:text-base truncate pr-2">
+                      {otherPersonName || 'User'}
+                    </h3>
+                    <span className="text-xs text-gray-500 flex-shrink-0">
+                      {formatThreadTime(thread.last_message_at)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs md:text-sm text-gray-600 truncate flex-1">
+                      {lastMessage}
+                    </p>
+                    {thread.unread_count > 0 && (
+                      <Badge className="bg-black text-white rounded-full h-5 min-w-5 px-1.5 text-xs flex-shrink-0">
+                        {thread.unread_count}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <ProtectedRoute>
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 border-b">
-            <div className="flex items-center gap-2 px-4">
+          <header className="flex h-14 md:h-16 shrink-0 items-center gap-2 border-b">
+            <div className="flex items-center gap-2 px-3 md:px-4 w-full">
               <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-              <Breadcrumb>
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb className="hidden md:block">
                 <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbItem>
                     <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
                   </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
+                  <BreadcrumbSeparator />
                   <BreadcrumbItem>
                     <BreadcrumbPage>Messages</BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
+              
+              {/* Mobile: Show thread menu button when conversation is selected */}
+              {selectedThread && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMobileThreadsOpen(true)}
+                  className="md:hidden ml-auto h-9 px-3"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
             </div>
           </header>
           
-          <div className="flex h-[calc(100vh-4rem)]">
-            {/* Left Sidebar - Threads List */}
-            <div className="w-80 border-r flex flex-col bg-gray-50">
-              {/* Search Header with New Conversation Button */}
-              <div className="p-4 bg-white border-b space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search conversations..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 h-10"
-                    />
-                    {searchQuery && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                        onClick={() => setSearchQuery('')}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {user?.role_id === 1 && (
-                    <Button
-                      onClick={() => setIsNewConversationOpen(true)}
-                      className="bg-black text-white hover:bg-gray-900 h-10 w-10 p-0"
-                      title="Start new conversation"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Threads List */}
-              <div className="flex-1 overflow-y-auto">
-                {isLoadingThreads ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                  </div>
-                ) : filteredThreads.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 text-gray-500 p-4">
-                    <MessageSquare className="h-8 w-8 mb-2 text-gray-300" />
-                    <p className="text-sm text-center">
-                      {searchQuery ? 'No conversations found' : 'No conversations yet'}
-                    </p>
-                    {user?.role_id === 1 && !searchQuery && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsNewConversationOpen(true)}
-                        className="mt-3"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Start conversation
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  filteredThreads.map((thread) => {
-                    const isTrainer = user?.role_id === 1;
-                    const otherPersonName = isTrainer ? thread.client_name : thread.trainer_name;
-                    const isSelected = selectedThreadId === thread.id;
-                    
-                    // Get last message - check both fields for compatibility
-                    const lastMessage = thread.last_message || 'No messages yet';
-
-                    return (
-                      <button
-                        key={thread.id}
-                        onClick={() => setSelectedThreadId(thread.id)}
-                        className={cn(
-                          "w-full p-4 flex items-start gap-3 hover:bg-white transition-colors border-b text-left",
-                          isSelected && "bg-white border-l-4 border-l-black"
-                        )}
-                      >
-                        <Avatar className="h-12 w-12 flex-shrink-0">
-                          <AvatarFallback className="bg-black text-white font-semibold text-sm">
-                            {getUserInitials(otherPersonName || '')}
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-1">
-                            <h3 className="font-semibold text-sm truncate pr-2">
-                              {otherPersonName || 'User'}
-                            </h3>
-                            <span className="text-xs text-gray-500 flex-shrink-0">
-                              {formatThreadTime(thread.last_message_at)}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm text-gray-600 truncate flex-1">
-                              {lastMessage}
-                            </p>
-                            {thread.unread_count > 0 && (
-                              <Badge className="bg-black text-white rounded-full h-5 min-w-5 px-1.5 text-xs flex-shrink-0">
-                                {thread.unread_count}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+          <div className="flex h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)]">
+            {/* Desktop Sidebar - Threads List */}
+            <div className="hidden md:flex md:w-80 lg:w-96 border-r flex-col bg-gray-50">
+              <ThreadsList />
             </div>
 
-            {/* Right Side - Chat Area */}
+            {/* Mobile Sheet - Threads List */}
+            <Sheet open={isMobileThreadsOpen} onOpenChange={setIsMobileThreadsOpen}>
+              <SheetContent side="left" className="w-[85vw] sm:w-96 p-0">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Conversations</SheetTitle>
+                </SheetHeader>
+                <ThreadsList />
+              </SheetContent>
+            </Sheet>
+
+            {/* Main Chat Area */}
             <div className="flex-1 flex flex-col bg-white">
               {error && (
-                <Alert variant="destructive" className="m-4">
+                <Alert variant="destructive" className="m-3 md:m-4">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription className="text-sm">{error}</AlertDescription>
                 </Alert>
               )}
 
               {selectedThread ? (
                 <>
                   {/* Chat Header */}
-                  <div className="p-4 border-b flex items-center gap-3 bg-white">
-                    <Avatar className="h-11 w-11">
-                      <AvatarFallback className="bg-black text-white font-semibold">
+                  <div className="p-3 md:p-4 border-b flex items-center gap-3 bg-white flex-shrink-0">
+                    {/* Mobile back button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedThreadId(null)}
+                      className="md:hidden h-9 w-9 p-0"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </Button>
+
+                    <Avatar className="h-9 w-9 md:h-11 md:w-11">
+                      <AvatarFallback className="bg-black text-white font-semibold text-sm">
                         {getUserInitials(
                           (user?.role_id === 1 ? selectedThread.client_name : selectedThread.trainer_name) || ''
                         )}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-base">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm md:text-base truncate">
                         {user?.role_id === 1 ? selectedThread.client_name : selectedThread.trainer_name}
                       </h3>
                       <p className="text-xs text-gray-500">
@@ -504,16 +565,20 @@ export default function MessagesPage() {
                   </div>
 
                   {/* Messages List */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                  <div 
+                    ref={messagesContainerRef}
+                    onScroll={handleScroll}
+                    className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 md:space-y-4 bg-gray-50"
+                  >
                     {isLoadingMessages ? (
                       <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                       </div>
                     ) : messages.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                        <MessageSquare className="h-16 w-16 mb-4 text-gray-300" />
-                        <p className="text-base font-medium mb-1">No messages yet</p>
-                        <p className="text-sm text-gray-400">Start the conversation!</p>
+                      <div className="flex flex-col items-center justify-center h-full text-gray-500 px-4">
+                        <MessageSquare className="h-12 w-12 md:h-16 md:w-16 mb-4 text-gray-300" />
+                        <p className="text-sm md:text-base font-medium mb-1">No messages yet</p>
+                        <p className="text-xs md:text-sm text-gray-400">Start the conversation!</p>
                       </div>
                     ) : (
                       <>
@@ -531,9 +596,9 @@ export default function MessagesPage() {
                               )}
                             >
                               {!isOwnMessage && (
-                                <div className="w-8 h-8 flex-shrink-0">
+                                <div className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0">
                                   {showAvatar && (
-                                    <Avatar className="h-8 w-8">
+                                    <Avatar className="h-6 w-6 md:h-8 md:w-8">
                                       <AvatarFallback className="bg-gray-300 text-gray-700 text-xs font-semibold">
                                         {getUserInitials(
                                           (user?.role_id === 1 ? selectedThread.client_name : selectedThread.trainer_name) || ''
@@ -546,7 +611,7 @@ export default function MessagesPage() {
                               
                               <div
                                 className={cn(
-                                  "max-w-[65%] rounded-2xl px-4 py-2.5 shadow-sm",
+                                  "max-w-[75%] md:max-w-[65%] rounded-2xl px-3 py-2 md:px-4 md:py-2.5 shadow-sm",
                                   isOwnMessage
                                     ? "bg-black text-white rounded-br-md"
                                     : "bg-white text-gray-900 rounded-bl-md border border-gray-200"
@@ -555,7 +620,6 @@ export default function MessagesPage() {
                                 {hasAttachment ? (
                                   <div className="space-y-2">
                                     {isImageFile(message.image_url!) ? (
-                                      // Image preview
                                       <a 
                                         href={chatApi.getFileUrl(message.image_url!)} 
                                         target="_blank" 
@@ -567,31 +631,29 @@ export default function MessagesPage() {
                                           alt="Attachment"
                                           width={500}
                                           height={500}
-                                          className="rounded-lg max-w-full h-auto max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                          className="rounded-lg max-w-full h-auto max-h-48 md:max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                         />
-
                                       </a>
                                     ) : (
-                                      // File attachment (non-image)
                                       <a 
                                         href={chatApi.getFileUrl(message.image_url!)} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
                                         className={cn(
-                                          "flex items-center gap-3 p-3 rounded-lg transition-colors",
+                                          "flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg transition-colors",
                                           isOwnMessage 
                                             ? "bg-white/10 hover:bg-white/20" 
                                             : "bg-gray-50 hover:bg-gray-100"
                                         )}
                                       >
                                         <div className={cn(
-                                          "w-10 h-10 rounded-lg flex items-center justify-center text-xl",
+                                          "w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center",
                                           isOwnMessage ? "bg-white/20" : "bg-gray-200"
                                         )}>
-                                          <Paperclip className="h-5 w-5" />
+                                          <Paperclip className="h-4 w-4 md:h-5 md:w-5" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-medium truncate">
+                                          <p className="text-xs md:text-sm font-medium truncate">
                                             {message.body.replace('📎 ', '')}
                                           </p>
                                           <p className={cn(
@@ -604,16 +666,14 @@ export default function MessagesPage() {
                                       </a>
                                     )}
                                     
-                                    {/* Show body text if it's not just the attachment indicator */}
                                     {message.body && !message.body.startsWith('📎') && (
-                                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                      <p className="text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed">
                                         {message.body}
                                       </p>
                                     )}
                                   </div>
                                 ) : (
-                                  // Regular text message
-                                  <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                  <p className="text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed">
                                     {message.body}
                                   </p>
                                 )}
@@ -628,7 +688,7 @@ export default function MessagesPage() {
                                 </p>
                               </div>
                               
-                              {isOwnMessage && <div className="w-8 h-8 flex-shrink-0" />}
+                              {isOwnMessage && <div className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" />}
                             </div>
                           );
                         })}
@@ -638,8 +698,8 @@ export default function MessagesPage() {
                   </div>
 
                   {/* Message Input */}
-                  <div className="p-4 bg-white border-t">
-                    <div className="flex items-end gap-3">
+                  <div className="p-3 md:p-4 bg-white border-t flex-shrink-0">
+                    <div className="flex items-end gap-2 md:gap-3">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -666,21 +726,21 @@ export default function MessagesPage() {
                           onKeyPress={handleKeyPress}
                           placeholder="Type a message..."
                           disabled={isSendingMessage}
-                          className="h-10 resize-none"
+                          className="h-10 text-sm md:text-base"
                         />
                       </div>
 
                       <Button
                         onClick={handleSendMessage}
                         disabled={!messageInput.trim() || isSendingMessage}
-                        className="bg-black text-white hover:bg-gray-900 flex-shrink-0 h-10 px-6"
+                        className="bg-black text-white hover:bg-gray-900 flex-shrink-0 h-10 w-10 md:w-auto md:px-6 p-0 md:p-2"
                       >
                         {isSendingMessage ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
                           <>
-                            <Send className="h-4 w-4 mr-2" />
-                            Send
+                            <Send className="h-4 w-4 md:mr-2" />
+                            <span className="hidden md:inline">Send</span>
                           </>
                         )}
                       </Button>
@@ -688,10 +748,26 @@ export default function MessagesPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-500 bg-gray-50">
-                  <MessageSquare className="h-20 w-20 mb-6 text-gray-300" />
-                  <h3 className="text-xl font-semibold mb-2 text-gray-700">Select a conversation</h3>
-                  <p className="text-sm text-gray-500">Choose a conversation from the list to start messaging</p>
+                <div className="flex flex-col items-center justify-center h-full text-gray-500 bg-gray-50 px-4">
+                  {/* Show button to open threads on mobile */}
+                  <div className="md:hidden mb-6">
+                    <Button
+                      onClick={() => setIsMobileThreadsOpen(true)}
+                      variant="outline"
+                      className="h-12 px-6"
+                    >
+                      <MessageSquare className="h-5 w-5 mr-2" />
+                      View Conversations
+                    </Button>
+                  </div>
+                  
+                  <MessageSquare className="h-16 w-16 md:h-20 md:w-20 mb-6 text-gray-300" />
+                  <h3 className="text-lg md:text-xl font-semibold mb-2 text-gray-700 text-center">
+                    Select a conversation
+                  </h3>
+                  <p className="text-xs md:text-sm text-gray-500 text-center max-w-sm">
+                    Choose a conversation from the list to start messaging
+                  </p>
                 </div>
               )}
             </div>
@@ -699,13 +775,13 @@ export default function MessagesPage() {
 
           {/* New Conversation Modal */}
           <Dialog open={isNewConversationOpen} onOpenChange={setIsNewConversationOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md mx-4 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
                   <UserPlus className="h-5 w-5" />
                   Start New Conversation
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-sm">
                   Search for a client to start a new conversation with
                 </DialogDescription>
               </DialogHeader>
@@ -714,18 +790,17 @@ export default function MessagesPage() {
                 {createThreadError && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{createThreadError}</AlertDescription>
+                    <AlertDescription className="text-sm">{createThreadError}</AlertDescription>
                   </Alert>
                 )}
 
-                {/* Search Input */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search clients by name or email..."
+                    placeholder="Search clients..."
                     value={clientSearchQuery}
                     onChange={(e) => setClientSearchQuery(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 text-sm"
                   />
                   {clientSearchQuery && (
                     <Button
@@ -739,17 +814,16 @@ export default function MessagesPage() {
                   )}
                 </div>
 
-                {/* Available Clients List */}
-                <div className="border rounded-lg max-h-96 overflow-y-auto">
+                <div className="border rounded-lg max-h-[50vh] overflow-y-auto">
                   {isLoadingClients ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                     </div>
                   ) : availableClients.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500 px-4">
                       <UserPlus className="h-12 w-12 mb-3 text-gray-300" />
-                      <p className="text-sm font-medium">No clients found</p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-sm font-medium text-center">No clients found</p>
+                      <p className="text-xs text-gray-400 mt-1 text-center">
                         {clientSearchQuery 
                           ? 'Try a different search term' 
                           : 'All clients already have conversations'}
@@ -762,7 +836,7 @@ export default function MessagesPage() {
                           key={client.user_id}
                           onClick={() => handleStartConversation(client.user_id)}
                           disabled={isCreatingThread}
-                          className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full p-3 md:p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
                         >
                           <Avatar className="h-10 w-10 flex-shrink-0">
                             <AvatarFallback className="bg-black text-white font-semibold text-sm">
