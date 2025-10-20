@@ -6,6 +6,7 @@ import {
   Users,
   MessagesSquare,
   Settings,
+  Trophy,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
@@ -77,17 +78,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         isActive: pathname.startsWith("/dashboard/users"),
       },
       {
+        title: "Motivational quotes",
+        url: "/dashboard/motivation",
+        icon: Trophy,
+        isActive: pathname.startsWith("/dashboard/motivation"),
+      },
+      {
         title: "Messages",
         url: "/dashboard/messages", 
         icon: MessagesSquare,
         isActive: pathname.startsWith("/dashboard/messages"),
       },
-      // {
-      //   title: "Analytics",
-      //   url: "/dashboard/analytics",
-      //   icon: BarChart3,
-      //   isActive: pathname.startsWith("/dashboard/analytics"),
-      // },
+   
       {
         title: "Settings",
         url: "/dashboard/settings",

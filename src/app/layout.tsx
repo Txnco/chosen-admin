@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'CHOSEN Admin Panel',
@@ -18,6 +19,13 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        <Toaster 
+          position="top-right" 
+          richColors 
+          expand={false}
+          closeButton
+          duration={4000}
+        />
       </body>
     </html>
   );

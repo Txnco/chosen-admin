@@ -17,7 +17,6 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   Users, 
   UserPlus, 
@@ -28,8 +27,11 @@ import {
   AlertCircle,
   Eye,
   ArrowUpRight,
+  MessageSquare,
+  Quote
 } from 'lucide-react';
 import { userApi, UserData } from '@/lib/api';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format, subDays, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 
@@ -128,6 +130,11 @@ export default function DashboardPage() {
     const first = user.first_name?.charAt(0) || '';
     const last = user.last_name?.charAt(0) || '';
     return (first + last).toUpperCase() || 'U';
+  };
+
+  const getProfileImageUrl = (profilePicture?: string | null) => {
+    if (!profilePicture) return null;
+    return `${process.env.NEXT_PUBLIC_UPLOADS_PATH}/uploads/profile/${profilePicture}`;
   };
 
   const getRoleName = (roleId: number) => {
@@ -351,6 +358,13 @@ export default function DashboardPage() {
                       <div key={user.user_id} className="flex items-center justify-between space-x-4">
                         <div className="flex items-center space-x-4">
                           <Avatar className="h-10 w-10">
+                            {user.profile_picture && (
+                              <AvatarImage
+                                src={getProfileImageUrl(user.profile_picture) ?? undefined}
+                                alt={`${user.first_name} ${user.last_name}`}
+                                className="object-cover w-full h-full rounded-full"
+                              />
+                            )}
                             <AvatarFallback className="bg-black text-white font-semibold text-sm">
                               {getUserInitials(user)}
                             </AvatarFallback>
@@ -388,11 +402,12 @@ export default function DashboardPage() {
             </Card>
 
             {/* Quick Actions */}
-            <Card>
+           <Card>
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
                 <CardDescription>Common administrative tasks</CardDescription>
               </CardHeader>
+
               <CardContent className="space-y-3">
                 <Button asChild className="w-full justify-start" variant="outline">
                   <Link href="/dashboard/users">
@@ -401,32 +416,32 @@ export default function DashboardPage() {
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
                 </Button>
-                
-                {/* <Button asChild className="w-full justify-start" variant="outline">
-                  <Link href="/dashboard/questionnaires">
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Questionnaires
+
+                <Button asChild className="w-full justify-start" variant="outline">
+                  <Link href="/dashboard/motivation">
+                    <Quote className="h-4 w-4 mr-2" />
+                    Motivational Quotes
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
-                </Button> */}
-                
-                {/* <Button asChild className="w-full justify-start" variant="outline">
+                </Button>
+
+                <Button asChild className="w-full justify-start" variant="outline">
                   <Link href="/dashboard/messages">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Messages
+                    {stats && stats.unreadMessages > 0 && (
+                      <Badge variant="destructive" className="ml-2 h-5">
+                        {stats.unreadMessages}
+                      </Badge>
+                    )}
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
-                </Button> */}
-                
-                {/* <Button asChild className="w-full justify-start" variant="outline">
-                  <Link href="/dashboard/analytics">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Analytics
-                    <ArrowUpRight className="h-4 w-4 ml-auto" />
-                  </Link>
-                </Button> */}
+                </Button>
+
+              
               </CardContent>
             </Card>
+
           </div>
 
         

@@ -300,6 +300,37 @@ export interface EventListParams {
   include_repeating?: boolean;
 }
 
+export interface MotivationalQuoteData {
+  id: number;
+  quote: string;
+  author?: string;
+  is_active: boolean;
+  times_shown: number;
+  last_shown_at?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+}
+
+export interface RandomQuoteData {
+  id: number;
+  quote: string;
+  author?: string;
+  times_shown: number;
+}
+
+export interface MotivationalQuoteCreate {
+  quote: string;
+  author?: string;
+  is_active?: boolean;
+}
+
+export interface MotivationalQuoteUpdate {
+  quote?: string;
+  author?: string;
+  is_active?: boolean;
+}
+
 // Auth API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
@@ -457,6 +488,38 @@ export const dayRatingApi = {
 
   update: async (ratingId: number, data: DayRatingUpdate): Promise<DayRatingData> => {
     const response = await api.put(`/tracking/day-rating/${ratingId}`, data);
+    return response.data;
+  },
+};
+
+export const motivationalQuoteApi = {
+  getRandom: async (): Promise<RandomQuoteData> => {
+    const response = await api.get('/quotes/random');
+    return response.data;
+  },
+
+  getAll: async (): Promise<MotivationalQuoteData[]> => {
+    const response = await api.get('/quotes/');
+    return response.data;
+  },
+
+  getById: async (quoteId: number): Promise<MotivationalQuoteData> => {
+    const response = await api.get(`/quotes/${quoteId}`);
+    return response.data;
+  },
+
+  create: async (data: MotivationalQuoteCreate): Promise<MotivationalQuoteData> => {
+    const response = await api.post('/quotes/', data);
+    return response.data;
+  },
+
+  update: async (quoteId: number, data: MotivationalQuoteUpdate): Promise<MotivationalQuoteData> => {
+    const response = await api.put(`/quotes/${quoteId}`, data);
+    return response.data;
+  },
+
+  delete: async (quoteId: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/quotes/${quoteId}`);
     return response.data;
   },
 };
