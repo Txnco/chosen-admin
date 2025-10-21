@@ -429,11 +429,6 @@ export default function DashboardPage() {
                   <Link href="/dashboard/messages">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Messages
-                    {stats && stats.unreadMessages > 0 && (
-                      <Badge variant="destructive" className="ml-2 h-5">
-                        {stats.unreadMessages}
-                      </Badge>
-                    )}
                     <ArrowUpRight className="h-4 w-4 ml-auto" />
                   </Link>
                 </Button>

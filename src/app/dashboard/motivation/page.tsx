@@ -444,7 +444,7 @@ export default function MotivationalQuotesPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete the quote: "{selectedQuote?.quote}".
+                    This will permanently delete the quote: &quot;{selectedQuote?.quote}&quot;.
                     This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
