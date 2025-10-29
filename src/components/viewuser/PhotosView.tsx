@@ -54,6 +54,16 @@ export function PhotosView({ userId }: PhotosViewProps) {
     );
   }
 
+  const getProgressImageUrl = (progressPicture?: string) => {
+    if (!progressPicture) return null;
+    else if(progressPicture.startsWith('http')){
+      const filename = progressPicture.split('/').pop();
+      return filename ? process.env.NEXT_PUBLIC_UPLOADS_PATH + `/uploads/progress/${filename}` : null;
+    }
+    return process.env.NEXT_PUBLIC_UPLOADS_PATH +`/uploads/progress/${progressPicture}`;
+  };
+
+
   const filteredPhotos = selectedAngle === 'all'
     ? photos
     : photos.filter(p => p.angle === selectedAngle);
@@ -80,7 +90,7 @@ export function PhotosView({ userId }: PhotosViewProps) {
                   <div key={photo.id} className="relative group">
                     <div className="aspect-square relative rounded-lg overflow-hidden border-2 border-gray-200">
                       <Image
-                        src={photo.image_url}
+                        src={getProgressImageUrl(photo.image_url)}
                         alt={`Progress photo - ${photo.angle}`}
                         fill
                         className="object-cover"
